@@ -1,0 +1,435 @@
+---
+title: "What's in a wine review?"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+## I don't understand wine.  Can data fix that? 
+
+I *like* wine, but there are several layers of complication and fussyness that, for me, get in the way.  
+
+Whiskey, think I understand. That's thanks to some great analysis of [whiskey data][https://www.mathstat.strath.ac.uk/outreach/nessie/nessie_whisky.html], showing that for all the many different ways we can describe them, 60% of the difference among whiskies is due to one of two main features, either the "smokiness" or the "body" - and by sampling varities along these axes, you can develop a thoughtful appreciation for whiskey.  
+
+Wine, wine is more complicated.  While people typically use around a dozen terms to describe whiskies, people use hundreds of terms to describe wines.  I compiled a list (in this repo as "wine_terms.txt") capturing ~270 taste-related terms used to describe wine, and the question I'm wondering is: what's the simplest framework we can use to think about the taste of wine?  Do we need all 270 terms to tell reds from whites?  How about Pinot Grigio from Pinot Noirs or Merlot from Malbec?
+
+Before we dig into the data - there's one BIG caveat: you dye a white wine red, and [people start describing the taste in terms of a red wine ][http://www.realclearscience.com/blog/2014/08/the_most_infamous_study_on_wine_tasting.html].  The down side of this is that our 'taste-terms' might not be based on taste alone.  I'm okay with that. The goal here is to better understand wines, and if this data give us information beyond red wine is different than white, that's terrific. And, on the plus side: it should be pretty easy to tell white wines from red, at the very least.
+
+So first - let's load the libraries and data we'll need to run further analysis
+
+```{r initialize, include=FALSE}
+# initialize all necessary packages
+options(warn=-1)
+
+suppressMessages(library(dplyr))
+suppressMessages(library(slam))
+suppressMessages(library(lsa))
+suppressMessages(library(tm))
+suppressMessages(library(NLP))
+suppressMessages(library(ggplot2))
+suppressMessages(library(gmodels))
+suppressMessages(library(reshape2))
+
+#first, load the wine terms we're going to need
+wine_terms<-t(read.csv("wine_terms.txt", sep = ",", header = F))
+
+# then, load the review data, scraped from the web using the scraper in this repository
+wine_cellar <- readRDS("wine_collection_V2.RDS")
+wine_all <- bind_rows(wine_cellar)
+
+
+```
+
+Then we'll need to clean and processes our database of wine reviews - first identifing which reviews have which terms, creating a "bag-of-words" model of each review through which we can compare different reviews 
+
+```{r term_extraction, include=FALSE}
+# let's define a function to clean and match reviews to wine terms
+
+clean_review = function(x,wine_terms){
+  
+  review_terms <- x %>% 
+    toupper() %>% 
+    removePunctuation() %>% 
+    strsplit(" ")
+  
+  review_vector <- matrix(unlist(review_terms), ncol = 1, byrow = TRUE)
+  term_vector <- as.numeric(wine_terms%in%review_vector)
+  return(term_vector)
+  
+}
+
+# let's subset to remove infrequent wines
+# and filter out others, if we want
+# (e.g. remove blends, keep just one wine type, etc)
+
+wine_all.new <- wine_all
+wine_all.new <- wine_all.new %>% group_by(Variety) %>% filter(n() >= 20) %>% ungroup() %>% as.data.frame()
+wine_all.new <- wine_all.new %>% filter(!grepl("Portuguese",wine_all.new$Variety, fixed=TRUE))
+
+# then, let's use that function on all wine reviews
+# by first picking out the reviews
+
+wine_reviews <- wine_all.new["review"]
+wine_reviews <- split(wine_reviews,seq(nrow(wine_reviews)))
+
+# then by snatching the IDs for each wine
+wine_IDs <- wine_all.new["Variety"]
+wine_IDs <- unlist(split(wine_IDs, seq(nrow(wine_IDs))))
+
+# then using the function on each review
+
+term_matrix <- lapply(wine_reviews, function(x) clean_review(x,wine_terms))
+term_matrix <- matrix(unlist(term_matrix), ncol = nrow(wine_all.new), dimnames = list(NULL, wine_IDs))
+
+```
+
+Now that we have our simple model of wine-terminolgy - let's try and simplify it through principal components analysis (PCA), and see if there are a few dimensions that help seperate wines into groups by category or varietal
+
+```{r pca_calc_and_projection, include=TRUE, results='hide'}
+## OK.  So we've got ~270 features (terms) to judge wine similarity
+## can we use these to break down wine varieties in an interpretable way? 
+
+## to simplify the 270, let's do PCA on that term matrix
+pc_results <- prcomp(term_matrix) 
+
+## and bind wine features to the PCS for easy sorting 
+pcs <- cbind(pc_results$rotation,wine_all.new)
+pc1_wineload = aggregate(pcs$PC1, by= list(pcs$Variety), FUN = mean)
+pc2_wineload = aggregate(pcs$PC1, by= list(pcs$Variety), FUN = mean)
+
+## now let's structure a plot on the basis of wine types -- 
+#perhaps red vs white vs rose?
+plt1 <- ggplot(subset(pcs,Variety %in% c("White Blend","Rosé", "Red Blend")), 
+               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/3) + xlim(-.04, .005) + ylim(-.02, .04) + guides(col = guide_legend(nrow = 2)) + theme(legend.position = "bottom")
+
+#the big grapes?  
+plt2 <- ggplot(subset(pcs,Variety %in% c("Chardonnay",  "Sauvignon Blanc", "Merlot","Cabernet Sauvignon","Sangiovese")), 
+               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/3)  + xlim(-.04, .005) + ylim(-.02, .04) + guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
+
+#some little grapes?
+plt3 <- ggplot(subset(pcs,Variety %in% c("Grüner Veltliner", "Petit Verdot", "Viognier", "Cabernet Franc","Malbec", "Nebbiolo")), 
+               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/3) + xlim(-.04, .005) + ylim(-.02, .04) + guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
+
+#desserts, ports and bubbly?
+plt4 <- ggplot(subset(pcs,Category %in% c("Dessert", "Sparkling","Port/Sherry")), 
+               aes(x = PC1, y = PC2, colour = Category)) + geom_point( alpha = 1/3) + xlim(-.04, .005) + ylim(-.02, .04) + guides(col = guide_legend(nrow = 2))+ theme(legend.position = "bottom")
+
+
+source("multiplot.r")
+multiplot(cols = 2, plt1,plt2,plt3,plt4)
+
+```
+
+So - this is pretty nice.  Yes, of course we can seperate white wines from reds - just like we expected. As a nice sanity check - it looks like Rosé wines fall right across the edges of the red/white distributions which makes a fair bit of sense.  Even nicer though, and for me way more interestingly is that the difference *within* reds is just as big as the differences *between* whites and reds.  This IS quite suprising - it means that on this red-white axis (and it really does seem to be a single dimension of variation) there are white-ish reds and 'average' reds and really-red reds. Better yet, theres some reasonable variability among how whites are described too - some whites are REALLY white.  It just so happens two of my personal favorite varitals sit at the edge of this white-red axis, with "Grüner Veltliner" being among the whitest of the whites and "Sangiovese" being among the reddest of the reds.  So far - I'm THRILLED with this.  This is a terrific bit of insight into how varietals compare to one another, and gives a simple framework for thinking about different grapes. But what are the terms were important for making these principle components?  What make up this white-red axis?   Let's check out the loadings on the first two PCs.
+
+```{r pca_loadings_plot, include=TRUE, results='hide'}
+
+textplt1 <- ggplot(as.data.frame(pc_results$x), aes(x=PC1, y=PC2, label = wine_terms)) + geom_text() +geom_label()
+
+plot(textplt1)
+
+```
+
+Ok so this makes sense - PC1 seesm to call out a number of big red wine terms - tannins, and cherry, spice and rasberry flavor all play a big role in PC1.  On the white-wine-ish (+) side of this axis are more traditionally white-wine terms like pinapple, vegital, and urine. It's ok. urine, for better or worse is a term used to describe some white wines (e.g. cat urine or dog urine) and, for what it's worth, I happen to like wines that taste like cat pee.  *gross*.
+
+Moving on - PC2 seems to be loaded with many traditionally white-wine terms - apple, lemon, pear, peach, and ripe fruits all fall heavily on the white wine (+) side of this axis - while tobacco, tannins, cherry are all on the red (-) side of this axis, too.  
+
+so if we have all this information to tell apart wines how well do we *reall* do at classifying wines by category or varietal from these terms?  Let's do a quick classification of just the "Big" wines -- wines varieties that have more than 300 reviews in our database -- how do they classify? 
+
+```{r classification_trial, include=TRUE, results='hide'}
+
+library(mlr)
+
+pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 300) %>% ungroup() %>% as.data.frame()
+pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
+
+
+
+mldata = cbind(pcs2[,1:150],pcs2[,296])
+colnames(mldata)[151] <- "Variety"
+
+
+## 1) Define the task
+## Specify the type of analysis (e.g. classification) and provide data and response variable
+task = makeClassifTask(data = mldata, target = "Variety")
+
+## 2) Define the learner
+## Choose a specific algorithm (e.g. linear discriminant analysis)
+lrn = makeLearner("classif.svm") #svm and ksvm best, then cforest, next glmnet then xgboost good too
+
+n = nrow(mldata)
+train.set = sample(n, size = 2/3*n)
+test.set = setdiff(1:n, train.set)
+
+## 3) Fit the model
+## Train the learner on the task using a random subset of the data as training set
+model = train(lrn, task, subset = train.set)
+
+## 4) Make predictions
+## Predict values of the response variable for new observations by the trained model
+## using the other part of the data as test set
+pred = predict(model, task = task, subset = test.set)
+
+## 5) Evaluate the learner
+## Calculate the mean misclassification error and accuracy
+performance(pred, measures = list(mmce, acc, ber, kappa))
+
+predconfmat <- calculateConfusionMatrix(pred = pred)
+
+## before plotting we need to scale the data (to the percent of wines classified per bin per column)
+#predconfmat$result <- t(scale(t(predconfmat$result), center = FALSE, scale = TRUE))
+predconfmat$result <- t(apply(predconfmat$result, 1, function(x)100*(x-min(x))/(max(x)-min(x))))
+
+
+## now sort those wines in a sensible way
+pc_wineload = aggregate(pcs2$PC1, by= list(pcs2$Variety), FUN = mean)
+
+image = qplot(x = true, y = predicted, fill=value, data=(melt(predconfmat$result[order(pc_wineload$x),order(pc_wineload$x)])),geom="tile")+theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
+plot(image)
+
+```
+
+They look like they classify pretty well - such that, for the most part, we can tell that a wine came from a particular variety and, even better - if we're mis classifying - it's not just random - we're mis-classifying based on wines that taste similarly, as if some Merlots really taste like (or, were described like) a Cab Sav.  
+
+Here's an interesting thought: Could we use this model to find individual wines that are particulalrly good examples of their class (like an ur-merlot) or wines that really taste like other things (e.g. can I find a cabernet that tastes like a white wine?).  When it's ready - I'll have a link to a shiny app I'm writing to do just this right here.  
+
+Until then - let's get back to our question - how well can we *really* tell apart wines based on these reviews, and how many *dimensions* do we need to do that? 
+
+First - let's find what classifier performs best for the categories we want to classify
+
+```{r classification_evaluation, include=TRUE, results='hide'}
+## but can we assess multiple learners on a range of tasks? 
+
+##
+# a dataset based on big wine varieties
+
+pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 300) %>% ungroup() %>% as.data.frame()
+pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
+
+mldata_big_varieties = cbind(pcs2[,1:50],pcs2[,296])
+colnames(mldata_big_varieties)[51] <- "Target"
+
+##
+# a dataset based on most wine varieties
+
+pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 50) %>% ungroup() %>% as.data.frame()
+pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
+
+mldata_small_varieties = cbind(pcs2[,1:50],pcs2[,296])
+colnames(mldata_small_varieties)[51] <- "Target"
+
+##
+# a dataset based on wine category
+
+pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 50) %>% ungroup() %>% as.data.frame()
+pcs2 <- subset(pcs2,Category %in% c("White", "Rosé", "Red"))
+
+mldata_wine_category = cbind(pcs2[,1:50],pcs2[,297])
+colnames(mldata_wine_category)[51] <- "Target"
+
+## 1) Define the tasks
+# we now need several tasks on which to assess the accuracy of our learners
+# by defining a list of tasks to run through
+
+tasks = list(makeClassifTask(data = mldata_big_varieties, target = "Target"),
+            makeClassifTask(data = mldata_small_varieties, target = "Target"),
+            makeClassifTask(data = mldata_wine_category, target = "Target")
+            )
+
+## 2) Define the learner
+## Choose a specific algorithm (e.g. linear discriminant analysis)
+lrns = list(makeLearner("classif.randomForest"),
+            makeLearner("classif.svm"),
+           makeLearner("classif.lda"),
+           makeLearner("classif.naiveBayes"),
+            makeLearner("classif.xgboost") 
+          )
+
+
+## 3) decide a resampling strategy
+# (e.g. holdout, CV)
+
+rdesc = makeResampleDesc("CV", iter=10)
+
+## 4) choose what measures to evaluate on
+# eg. meas = list(mmce, ber, timetrain)
+
+meas = list(mmce, acc, ber, timetrain)
+
+
+## 5) conduct the benchmarking experiment
+
+bmr = benchmark(lrns, tasks, rdesc, measures = meas)
+
+## 6) Evaluate the learners on all tasks
+
+# on the basis of balanced error rate (mean classification error across groups)
+plotBMRBoxplots(bmr, measure = ber, style = "violin", pretty.names = TRUE) +
+  aes(color = learner.id) +
+  theme(strip.text.x = element_text(size = 12))
+
+# and on the basis of time it takes to train the model
+plotBMRBoxplots(bmr, measure = acc, style = "violin", pretty.names = TRUE) +
+  aes(color = learner.id) +
+  theme(strip.text.x = element_text(size = 12))
+
+```
+
+it seems like both support vector machines (SVM) and randomForests (rf) do the trick - though, for this data the svms are a bit quicker to train - so let's use those going foward. 
+
+```{r classification_how_many_PCs, include=TRUE, results='hide'}
+## ok - we can classify AND have a sense of what works best
+## now, how many dimensions are required to really reach this level of effective classification
+## or, to put it another way: what's the dimensionality of wine taste ?
+## while many of the terms used to describe wines covary, and some of the terms 
+## reliably distingish wines quite well (e.g. cherry, tannins, pinapple) 
+## we have ~270 potential terms to describe wines by -- how many actually contribute 
+## to successfully telling the difference amongst wines by category or variety? 
+
+## to get a sense of the dimensionality - let's look at the eigenvalues
+plot(pc_results$sdev/sum(pc_results$sdev))
+
+## and let's look at how those eigenvalues sum to % total variance explained
+
+plot(cumsum(pc_results$sdev/sum(pc_results$sdev)))
+
+```
+
+If we were to go off the PCA alone - we might think we need 150-200 dimensions to explain 80% of the variance in terms used to describe wines -- but that doesn't seem to match how many dimensions are needed to seperate out reds from whites or reds from other reds -- two PCs seemed to do pretty good in the scatter plots above.  Let's take a more pragmatic approach - how many dimensions do we need to get to 80% of our max ability to classify -- more dimensions often gets us better classification, but how many do we need to get us most of the way there? 
+
+```{r}
+
+
+
+
+## how does this relate to our ability to classify? 
+# let's make a function to ease fitting a few things
+
+fit_pca_data<-function(pcs2, group2fit, niter, npcs){
+  
+  pcs_ctr <- 0
+  class_performance = matrix(data=NA, nrow=length(npcs), ncol=niter)
+  
+  
+  for (numpcs in npcs){
+    pcs_ctr <-pcs_ctr+1
+    
+    for (niter in c(1:niter)){
+      
+      if (group2fit == "Variety"){
+        mldata <- cbind(pcs2[,1:numpcs],pcs2[,296])
+        colnames(mldata)[numpcs+1] <- "Target"
+      }
+      
+      if (group2fit == "Category"){
+        mldata <- cbind(pcs2[,1:numpcs],pcs2[,297])
+        colnames(mldata)[numpcs+1] <- "Target"
+      }
+      
+      if (numpcs == 1){
+        colnames(mldata)[1:numpcs] <- "pcs"
+        
+        mldata <- as.data.frame(mldata)
+      }
+      
+      # set up the classification via MLR: task, learner, subsetting, model, prediction
+      task = makeClassifTask(data = mldata, target = "Target")
+      lrn = makeLearner("classif.svm") #svm and ksvm best, then cforest, next glmnet then xgboost good too
+      
+      n = nrow(mldata)
+      train.set = sample(n, size = 2/3*n)
+      test.set = setdiff(1:n, train.set)
+      
+      model = train(lrn, task, subset = train.set)
+      pred = predict(model, task = task, subset = test.set)
+      
+      ## 5) Evaluate the learner
+      ## Calculate the mean misclassification error and accuracy
+      class_performance[pcs_ctr,niter] <- performance(pred, measures = acc)
+    }
+  }
+  return(class_performance)
+}
+
+
+# and now let's fit some stuff
+
+
+niter = 10
+npcs = c(1,2,3,4,6,8,10,15,20,30,40,50,75,100,125,150,200,225,250)
+
+
+# like the most common wines 
+
+pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 300) %>% ungroup() %>% as.data.frame()
+pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
+group2fit = "Variety"
+
+class_biggrapes_performance <- fit_pca_data(pcs2, group2fit, niter, npcs )
+
+# or lesser wines 
+
+pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 50) %>% ungroup() %>% as.data.frame()
+pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
+group2fit = "Variety"
+
+class_smallgrapes_performance <- fit_pca_data(pcs2, group2fit, niter, npcs )
+
+
+# or or wine categories
+
+pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 50) %>% ungroup() %>% as.data.frame()
+pcs2 <- subset(pcs2,Category %in% c("White", "Red"))
+group2fit = "Category"
+
+class_category_performance <- fit_pca_data(pcs2, group2fit, niter, npcs )
+
+## and then aggregate the measures of interest
+
+class_category_performance_t = as.data.frame(class_category_performance)
+class_nmean <- apply(class_category_performance_t,1,function(x) mean(na.omit(x)))
+class_nmean <- class_nmean/max(class_nmean)
+class_sd <- apply(class_category_performance_t,1,function(x) sd(na.omit(x)/max(class_nmean)))
+xdata1 = as.data.frame(cbind(npcs,class_nmean,class_sd))
+
+class_biggrapes_performance_t = as.data.frame(class_biggrapes_performance)
+class_nmean2 <- apply(class_biggrapes_performance_t,1,function(x) mean(na.omit(x)))
+class_nmean2 <- class_nmean2/max(class_nmean2)
+class_sd2 <- apply(class_biggrapes_performance_t,1,function(x) sd(na.omit(x)/max(class_nmean2)))
+xdata2 = as.data.frame(cbind(npcs,class_nmean2,class_sd2))
+
+class_smallgrapes_performance_t = as.data.frame(class_smallgrapes_performance)
+class_nmean3 <- apply(class_smallgrapes_performance_t,1,function(x) mean(na.omit(x)))
+class_nmean3 <- class_nmean3/max(class_nmean3)
+class_sd3 <- apply(class_smallgrapes_performance_t,1,function(x) sd(na.omit(x)/max(class_nmean3)))
+xdata3 = as.data.frame(cbind(npcs,class_nmean3,class_sd3))
+
+xdata = Reduce(merge, list(xdata1, xdata2, xdata3))
+
+## and plot the classifier output
+
+plt1 <- ggplot(xdata) + 
+  geom_line(aes(x = npcs, y = class_nmean, color = "c1"), size = 1) +
+  geom_ribbon(aes(x = npcs, ymin = class_nmean - 2*class_sd, ymax = class_nmean + 2*class_sd), alpha = 0.3) +
+
+  geom_line(aes(x = npcs, y = class_nmean2, color = "c2"), size = 1) +
+  geom_ribbon(aes(x = npcs, ymin = class_nmean2 - 2*class_sd2, ymax = class_nmean2 + 2*class_sd2), alpha = 0.3) +
+
+  geom_line(aes(x = npcs, y = class_nmean3, color = "c3"), size = 1) +
+  geom_ribbon(aes(x = npcs, ymin = class_nmean3 - 2*class_sd3, ymax = class_nmean3 + 2*class_sd3), alpha = 0.3) +
+  
+  
+  xlab('number of PCs')+ylab('fracton of total classifcation') + 
+  
+  scale_colour_manual(name = 'Classification of:', 
+                      values =c('c1'='Blue','c2'='Orange','c3'='Red'), labels = c('Category','6 Big Varieties','All Varieties'))+
+  
+  scale_x_log10(breaks = npcs[c(1:10,12,14,16,19)], limits = c(.9, 251))
+
+plot(plt1)
+
+```
+
+
+So - in conclusion - it looks like those mere 2 dimensions - the ones we plotted are needed to tell apart whites from reds and rose, but somewhere between 6 and 15 dimensions are needed to give us 80% of our classification ability.  Hip. Time to start exploring more wines. 
+
