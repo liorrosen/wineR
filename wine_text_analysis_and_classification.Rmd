@@ -9,11 +9,11 @@ output:
 
 I *like* wine, but there are several layers of complication and fussyness that, for me, get in the way.  
 
-Whiskey, think I understand. That's thanks to some great analysis of [whiskey data][https://www.mathstat.strath.ac.uk/outreach/nessie/nessie_whisky.html], showing that for all the many different ways we can describe them, 60% of the difference among whiskies is due to one of two main features, either the "smokiness" or the "body" - and by sampling varities along these axes, you can develop a thoughtful appreciation for whiskey.  
+Whiskey, think I understand. That's thanks to some great analysis of [whiskey data](https://www.mathstat.strath.ac.uk/outreach/nessie/nessie_whisky.html), showing that for all the many different ways we can describe them, 60% of the difference among whiskies is due to one of two main features, either the "smokiness" or the "body" - and by sampling varities along these axes, you can develop a thoughtful appreciation for whiskey.  
 
 Wine, wine is more complicated.  While people typically use around a dozen terms to describe whiskies, people use hundreds of terms to describe wines.  I compiled a list (in this repo as "wine_terms.txt") capturing ~270 taste-related terms used to describe wine, and the question I'm wondering is: what's the simplest framework we can use to think about the taste of wine?  Do we need all 270 terms to tell reds from whites?  How about Pinot Grigio from Pinot Noirs or Merlot from Malbec?
 
-Before we dig into the data - there's one BIG caveat: you dye a white wine red, and [people start describing the taste in terms of a red wine ][http://www.realclearscience.com/blog/2014/08/the_most_infamous_study_on_wine_tasting.html].  The down side of this is that our 'taste-terms' might not be based on taste alone.  I'm okay with that. The goal here is to better understand wines, and if this data give us information beyond red wine is different than white, that's terrific. And, on the plus side: it should be pretty easy to tell white wines from red, at the very least.
+Before we dig into the data - there's one BIG caveat: you dye a white wine red, and [people start describing the taste in terms of a red wine ](http://www.realclearscience.com/blog/2014/08/the_most_infamous_study_on_wine_tasting.html).  The down side of this is that our 'taste-terms' might not be based on taste alone.  I'm okay with that. The goal here is to better understand wines, and if this data give us information beyond red wine is different than white, that's terrific. And, on the plus side: it should be pretty easy to tell white wines from red, at the very least.
 
 So first - let's load the libraries and data we'll need to run further analysis
 
