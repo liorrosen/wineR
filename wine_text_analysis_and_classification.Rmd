@@ -1,8 +1,8 @@
 ---
 title: "What's in a wine review?"
 output:
-  html_notebook: default
   html_document: default
+  html_notebook: default
 ---
 
 ## I don't understand wine.  Can data fix that? 
@@ -197,7 +197,7 @@ predconfmat$result <- t(apply(predconfmat$result, 1, function(x)100*(x-min(x))/(
 pc_wineload = aggregate(pcs2$PC1+pcs2$PC2, by= list(pcs2$Variety), FUN = mean)
 
 image = qplot(x = true, y = predicted, fill=value, data=(melt(predconfmat$result[order(pc_wineload$x),order(pc_wineload$x)])),geom="raster")+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))+scale_fill_continuous(name = "classification %:")
 plot(image)
 
 ```
@@ -210,7 +210,7 @@ Until then - let's get back to our question - how well can we *really* tell apar
 
 First - let's find what classifier performs best for the categories we want to classify
 
-```{r classification_evaluation, include=TRUE, echo = FALSE, results='hide'}
+```{r classification_evaluation, include=TRUE, echo = FALSE, results='hide', fig.height=4, fig.width=12}
 ## but can we assess multiple learners on a range of tasks? 
 
 ##
@@ -277,28 +277,27 @@ bmr = benchmark(lrns, tasks, rdesc, measures = meas)
 ## 6) Evaluate the learners on all tasks
 
 # on the basis of balanced error rate (mean classification error across groups)
-plotBMRBoxplots(bmr, measure = ber, style = "violin", pretty.names = TRUE) +
+plt1<-plotBMRBoxplots(bmr, measure = ber, style = "violin", pretty.names = TRUE) +
   aes(color = learner.id) +
   theme(strip.text.x = element_text(size = 12))
-
-
-```
-
-it seems like both support vector machines (SVM) and randomForests (rf) do the trick - they're the best at classifying most datasets - though are they efficient? 
-
-```{r include=TRUE, results='hide', echo = FALSE,}
 
 # evaluate on the basis of time it takes to train the model
-plotBMRBoxplots(bmr, measure = timetrain, style = "violin", pretty.names = TRUE) +
+plt2<-plotBMRBoxplots(bmr, measure = timetrain, style = "violin", pretty.names = TRUE) +
   aes(color = learner.id) +
   theme(strip.text.x = element_text(size = 12))
 
+# plot them both
+
+multiplot(plt1,plt2, cols=2)
+
 ```
 
+it seems like both support vector machines (SVM) and randomForests (rf) do the trick - they're the best at classifying most datasets.  However though neither are particularly fast to train, for this data SVMs are a fair bit quicker to train than random forests, so we'll use those going foward. 
 
-For this data the SVMs are a fair bit quicker to train - so let's use those going foward. 
 
-```{r classification_how_many_PCs, include=TRUE, echo = FALSE, results='hide'}
+## how many features do you need to identify wines by category or variety? 
+
+```{r classification_how_many_PCs, include=TRUE, echo = FALSE, results='hide',fig.height=4, fig.width=12}
 ## ok - we can classify AND have a sense of what works best
 ## now, how many dimensions are required to really reach this level of effective classification
 ## or, to put it another way: what's the dimensionality of wine taste ?
@@ -308,24 +307,36 @@ For this data the SVMs are a fair bit quicker to train - so let's use those goin
 ## to successfully telling the difference amongst wines by category or variety? 
 
 ## to get a sense of the dimensionality - let's look at the eigenvalues
-plot(pc_results$sdev/sum(pc_results$sdev))
+ydata = data.frame(matrix(ncol = 1, nrow = length(pc_results$sdev)))
+ydata[1] <- 100*pc_results$sdev/sum(pc_results$sdev)
+ydata <- as.data.frame(tibble::rownames_to_column(ydata,"PC #"))
+ydata["PC #"]<- as.double(unlist(ydata["PC #"]))
+colnames(ydata[2]) <- "% Variance Explained"
+colnames(ydata) <-c("PC #", "% Variance Explained")
 
+ydata1=as.data.frame(ydata)
+
+ydata = data.frame(matrix(ncol = 1, nrow = length(pc_results$sdev)))
+ydata[1] <- 100*cumsum(pc_results$sdev/sum(pc_results$sdev))
+ydata <- as.data.frame(tibble::rownames_to_column(ydata,"PC #"))
+ydata["PC #"]<- as.double(unlist(ydata["PC #"]))
+colnames(ydata) <-c("PC #", "% Cumulative Variance Explained")
+
+ydata2=as.data.frame(ydata)
+
+plt1<- ggplot(ydata1) + 
+  geom_line(aes(x = `PC #`, y = `% Variance Explained`), size = 1)
+
+plt2<- ggplot(ydata2) + 
+  geom_line(aes(x = `PC #`, y = `% Cumulative Variance Explained`), size = 1)
+
+multiplot(plt1,plt2, cols = 2)
 
 
 ```
 
-## how many features do you need to identify wines by category or variety? 
 
-If we were using a standard "elbow method" to evaluate the dimensionality of this data - perhaps we'd take 12, 25 or 50 PCs on the basis that adding more gave diminising returns.
-
-```{r classification_how_many_PCs2, include=TRUE, echo = FALSE, results='hide'}
-## and let's look at how those eigenvalues sum to % total variance explained
-
-plot(cumsum(pc_results$sdev/sum(pc_results$sdev)))
-```
-
-
-Alternatively, if we were using % total variance explained to choose features, we'd need 150-200 dimensions to explain 90% of the variance in terms used to describe wines.  However, that doesn't seem to match how many dimensions are needed to seperate out reds from whites or reds from other reds, as just two PCs seemed to do pretty good in the scatter plots above.  Let's take a more pragmatic approach - how many dimensions do we need to get to 80% of our max ability to classify?  More dimensions often gets us better classification, but how many do we need to get us most of the way there? 
+If we were using a standard "elbow method" to evaluate the dimensionality of this data - perhaps we'd take 12, 25 or 50 PCs on the basis that adding more gave diminising returns. Alternatively, if we were using % total variance explained to choose features, we'd need 150-200 dimensions to explain 90% of the variance in terms used to describe wines.  However, that doesn't seem to match how many dimensions are needed to seperate out reds from whites or reds from other reds, as just two PCs seemed to do pretty good in the scatter plots above.  Let's take a more pragmatic approach - how many dimensions do we need to get to 80% of our max ability to classify?  More dimensions often gets us better classification, but how many do we need to get us most of the way there? 
 
 ```{r classification_how_many_PCs3, include=TRUE, echo = FALSE, results='hide'}
 
@@ -447,7 +458,7 @@ plt1 <- ggplot(xdata) +
   geom_ribbon(aes(x = npcs, ymin = class_nmean3 - 2*class_sd3, ymax = class_nmean3 + 2*class_sd3), alpha = 0.3) +
   
   
-  xlab('number of PCs')+ylab('fracton of total classifcation') + 
+  xlab('number of PCs')+ylab('fraction of total classifcation') + 
   
   scale_colour_manual(name = 'Classification of:', 
                       values =c('c1'='Blue','c2'='Orange','c3'='Red'), labels = c('Category','5 Big Varieties','All Varieties'))+

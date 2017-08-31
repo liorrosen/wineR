@@ -28,7 +28,7 @@ wine_distances<- pcs[,c(1:2,287:298)]
 for (ii in 1:nrow(pc_wineload)){
   wine_distances[pc_wineload$Group.1[ii]] <-100
   for (jj in 1:nrow(pcs)){
-  wine_distances[jj,pc_wineload$Group.1[ii]]<-(sum(abs(pcs[jj,1:3]-pc_wineload[ii,3:5]))) # cityblock distance
+  wine_distances[jj,pc_wineload$Group.1[ii]]<-(sum(abs(pcs[jj,1:2]-pc_wineload[ii,3:4]))) # cityblock distance
   }
 }
 
@@ -45,10 +45,10 @@ library(ggplot2)
 sub_wine_distances <- wine_distances
 sub_wine_distances$price <- as.numeric(gsub('[$,]','',as.character(sub_wine_distances$price)))
 
-sub_wine_distances <- subset(sub_wine_distances, Variety %in% "Pinot Noir")
-sub_wine_distances <- subset(sub_wine_distances, price < 30)
+sub_wine_distances <- subset(sub_wine_distances, Variety %in% "Chardonnay")
+sub_wine_distances <- subset(sub_wine_distances, price < 300)
 
-ndx <- order(sub_wine_distances$Nebbiolo, decreasing = F)[1:N]
+ndx <- order(sub_wine_distances$'Malbec', decreasing = F)[1:N]
 
 ggplot(data=pc_wineload[1:30])+geom_point(aes(x = PC1, y = PC2, colour = Group.2))+geom_point(data=sub_wine_distances[ndx,], aes(x = PC1, y = PC2, colour = 'Selected Wines'))
 
