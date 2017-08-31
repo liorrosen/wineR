@@ -1,0 +1,58 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+ok - so assuming we have the first notebook run and have created the pcs variable - let's aggregate centers for each variety
+
+```{r}
+pcs2 <- subset(pcs, Category  %in% c("Red", "White"))
+pc_wineload <- aggregate(pcs2[1:150], by= list(pcs2$Variety, pcs2$Category), FUN = mean)
+pc_wineload <- pc_wineload[!(pc_wineload$Group.1 == "Chardonnay" & pc_wineload$Group.2 == "Red"),]
+pc_wineload <- pc_wineload[!(pc_wineload$Group.1 == "Aglianico" & pc_wineload$Group.2 == "White"),]
+pc_wineload <- pc_wineload[!(pc_wineload$Group.1 == "Pinot Noir" & pc_wineload$Group.2 == "White"),]
+pc_wineload <- pc_wineload[!(pc_wineload$Group.1 == "Syrah" & pc_wineload$Group.2 == "White"),]
+pc_wineload <- pc_wineload[!(pc_wineload$Group.1 ==  "Rosé" & pc_wineload$Group.2 == "White"),]
+rownames(pc_wineload) <- 1:nrow(pc_wineload)
+
+head(pc_wineload)
+
+```
+
+ok - now lets subtract each element from the cluster center of each other element
+
+```{r}
+
+wine_distances<- pcs[,c(1:2,287:298)]
+
+for (ii in 1:nrow(pc_wineload)){
+  wine_distances[pc_wineload$Group.1[ii]] <-100
+  for (jj in 1:nrow(pcs)){
+  wine_distances[jj,pc_wineload$Group.1[ii]]<-(sum(abs(pcs[jj,1:3]-pc_wineload[ii,3:5]))) # cityblock distance
+  }
+}
+
+head(wine_distances)
+```
+
+OK so now we have distances, let's try to sort by them -- find the 5 wines closest or furthest away from Cab Savs, for instance
+
+```{r}
+N=5
+
+library(ggplot2)
+
+sub_wine_distances <- wine_distances
+sub_wine_distances$price <- as.numeric(gsub('[$,]','',as.character(sub_wine_distances$price)))
+
+sub_wine_distances <- subset(sub_wine_distances, Variety %in% "Pinot Noir")
+sub_wine_distances <- subset(sub_wine_distances, price < 30)
+
+ndx <- order(sub_wine_distances$Nebbiolo, decreasing = F)[1:N]
+
+ggplot(data=pc_wineload[1:30])+geom_point(aes(x = PC1, y = PC2, colour = Group.2))+geom_point(data=sub_wine_distances[ndx,], aes(x = PC1, y = PC2, colour = 'Selected Wines'))
+
+head(sub_wine_distances[ndx,c(3,5,4,7,11,12)])
+
+
+```

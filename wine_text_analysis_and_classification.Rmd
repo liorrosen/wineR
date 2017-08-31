@@ -1,8 +1,8 @@
 ---
 title: "What's in a wine review?"
 output:
-  html_document: default
   html_notebook: default
+  html_document: default
 ---
 
 ## I don't understand wine.  Can data fix that? 
@@ -15,7 +15,7 @@ Wine, wine is more complicated.  While people typically use around a dozen terms
 
 Before we dig into the data - there's one BIG caveat: you dye a white wine red, and [people start describing the taste in terms of a red wine ](http://www.realclearscience.com/blog/2014/08/the_most_infamous_study_on_wine_tasting.html).  The down side of this is that our 'taste-terms' might not be based on taste alone.  I'm okay with that. The goal here is to better understand wines, and if this data give us information beyond red wine is different than white, that's terrific. And, on the plus side: it should be pretty easy to tell white wines from red, at the very least.
 
-So first - let's load the libraries and data we'll need to run further analysis
+So first - after loading the wine review data, and cleaning and processing our database of wine reviews - we'll create a simple model of how wine reviews map on to our selected wine terms.  This very simple model is often called a "bag-of-words" model. While there are many more complex ways of relating our wine reviews to one another (e.g. using context words in a continuous-bag-of-words or skip-gram model), it'd be quite promising if even this simple model could effectively compare wine reviews. 
 
 ```{r initialize, include=FALSE}
 # initialize all necessary packages
@@ -38,11 +38,6 @@ wine_cellar <- readRDS("wine_collection_V2.RDS")
 wine_all <- bind_rows(wine_cellar)
 
 
-```
-
-Then we'll need to clean and processes our database of wine reviews - first identifing which reviews have which terms, creating a "bag-of-words" model of each review through which we can compare different reviews 
-
-```{r term_extraction, include=FALSE}
 # let's define a function to clean and match reviews to wine terms
 
 clean_review = function(x,wine_terms){
@@ -80,12 +75,13 @@ wine_IDs <- unlist(split(wine_IDs, seq(nrow(wine_IDs))))
 
 term_matrix <- lapply(wine_reviews, function(x) clean_review(x,wine_terms))
 term_matrix <- matrix(unlist(term_matrix), ncol = nrow(wine_all.new), dimnames = list(NULL, wine_IDs))
-
 ```
 
-Now that we have our simple model of wine-terminolgy - let's try and simplify it through principal components analysis (PCA), and see if there are a few dimensions that help seperate wines into groups by category or varietal
 
-```{r pca_calc_and_projection, include=TRUE, results='hide', fig.height=8, fig.width=8}
+Now that we have our simple model of wine reviews, let's try and simplify it through principal components analysis (PCA) to see if there are a few dimensions that help seperate wines into groups by category or varietal
+
+
+```{r pca_calc_and_projection, include=TRUE, echo = FALSE, results='hide', fig.height=8, fig.width=8}
 options(warn=-1)
 ## OK.  So we've got ~270 features (terms) to judge wine similarity
 ## can we use these to break down wine varieties in an interpretable way? 
@@ -96,7 +92,7 @@ pc_results <- prcomp(term_matrix)
 ## and bind wine features to the PCS for easy sorting 
 pcs <- cbind(pc_results$rotation,wine_all.new)
 pc1_wineload = aggregate(pcs$PC1, by= list(pcs$Variety), FUN = mean)
-pc2_wineload = aggregate(pcs$PC1, by= list(pcs$Variety), FUN = mean)
+pc2_wineload = aggregate(pcs$PC2, by= list(pcs$Variety), FUN = mean)
 
 ## now let's structure a plot on the basis of wine types -- 
 #perhaps red vs white vs rose?
@@ -122,24 +118,33 @@ multiplot(cols = 2, plt1,plt2,plt3,plt4)
 
 ```
 
-So - this is pretty nice.  Yes, of course we can seperate white wines from reds - just like we expected. As a nice sanity check - it looks like Rosé wines fall right across the edges of the red/white distributions which makes a fair bit of sense.  Even nicer though, and for me way more interestingly is that the difference *within* reds is just as big as the differences *between* whites and reds.  This IS quite suprising - it means that on this red-white axis (and it really does seem to be a single dimension of variation) there are white-ish reds and 'average' reds and really-red reds. Better yet, theres some reasonable variability among how whites are described too - some whites are REALLY white.  It just so happens two of my personal favorite varitals sit at the edge of this white-red axis, with "Grüner Veltliner" being among the whitest of the whites and "Sangiovese" being among the reddest of the reds.  So far - I'm THRILLED with this.  This is a terrific bit of insight into how varietals compare to one another, and gives a simple framework for thinking about different grapes. But what are the terms were important for making these principle components?  What make up this white-red axis?   Let's check out the loadings on the first two PCs.
+So - this is pretty nice.  Yes, of course we can seperate white wines from reds - just like we expected. As a nice sanity check - it looks like Rosé wines fall right across the edges of the red/white distributions which makes a fair bit of sense.  Even nicer though, and for me way more interestingly is that the difference *within* reds is just as big as the differences *between* whites and reds.  This IS quite suprising - it means that on this red-white axis (and it really does seem to be a single dimension of variation) there are white-ish reds and 'average' reds and really-red reds. Better yet, theres some reasonable variability among how whites are described too - some whites are REALLY white.  It just so happens two of my personal favorite varitals sit at the edge of this white-red axis, with "Grüner Veltliner" being among the whitest of the whites and "Sangiovese" being among the reddest of the reds.  So far - I'm THRILLED with this.  Do the centers of the wine variety distributions look quite as good? 
+```{r}
+library(ggrepel)
 
-```{r pca_loadings_plot, include=TRUE, results='hide', fig.height=5, fig.width=6}
+pc_wineload = aggregate(pcs[1:150], by= list(pcs$Variety), FUN = mean)
+ggplot(pc_wineload, aes(x = PC1, y = PC2, label= Group.1))+ geom_point(color = 'orange')+geom_label_repel(label.size =NA, fontface = "bold", size = 3)
 
-textplt1 <- ggplot(as.data.frame(pc_results$x), aes(x=PC1, y=PC2, label = wine_terms))  +geom_label(label.size =0.1 ,	label.padding = unit(0.11,"lines"), fontface = "bold", size = 3) +
+```
+
+
+This is a terrific bit of insight into how varietals compare to one another, on average - while the spread of group means obviously as big as individual examples, there certainly seem to be a distribution of centriods within the white and red clusters (with a fun little "really red" group out at the top right corner of the plot). This gives us a simple framework for thinking about different grapes. But what are the terms were important for making these principle components?  What make up this white-red axis?   Let's check out the loadings on the first two PCs.
+
+```{r pca_loadings_plot, include=TRUE, results='hide', echo = FALSE, fig.height=8, fig.width=9}
+
+textplt1 <- ggplot(as.data.frame(pc_results$x), aes(x=PC1, y=PC2, label = wine_terms)) + geom_text(check_overlap=TRUE,fontface = "bold", size = 3)+
+#+geom_label(label.size =NA, fontface = "bold", size = 3) +
   xlim(-4, 28) + ylim(-19, 10) 
 
 plot(textplt1)
 
 ```
 
-Ok so this makes sense - PC1 seesm to call out a number of big red wine terms - tannins, and cherry, spice and rasberry flavor all play a big role in PC1.  On the white-wine-ish (+) side of this axis are more traditionally white-wine terms like pinapple, vegital, and urine. It's ok. urine, for better or worse is a term used to describe some white wines (e.g. cat urine or dog urine) and, for what it's worth, I happen to like wines that taste like cat pee.  *gross*.
+Ok so this makes sense - PC1 seesm to call out a number of big red wine terms - tannins, and cherry, spice and rasberry flavor all play a big role in PC1, while PC2 seems to be loaded with many traditionally white-wine terms - apple, lemon, pear, peach, and ripe fruits all fall heavily on the white wine (-) side of this axis - while tobacco, tannins, cherry are all on the red (+) side of this axis, too.  
 
-Moving on - PC2 seems to be loaded with many traditionally white-wine terms - apple, lemon, pear, peach, and ripe fruits all fall heavily on the white wine (+) side of this axis - while tobacco, tannins, cherry are all on the red (-) side of this axis, too.  
+so if we have all this information to tell apart wines how well do we really do at classifying wines by category or varietal from these terms?  Let's do a quick classification of just the "Big" wines -- wines varieties that have more than 300 reviews in our database - can we tell them apart?  
 
-so if we have all this information to tell apart wines how well do we *reall* do at classifying wines by category or varietal from these terms?  Let's do a quick classification of just the "Big" wines -- wines varieties that have more than 300 reviews in our database -- how do they classify? 
-
-```{r classification_trial, include=TRUE, results='hide', fig.height=5, fig.width=7}
+```{r classification_trial, include=TRUE, results='hide', echo = FALSE, fig.height=6, fig.width=8}
 
 library(mlr)
 
@@ -187,7 +192,8 @@ predconfmat$result <- t(apply(predconfmat$result, 1, function(x)100*(x-min(x))/(
 ## now sort those wines in a sensible way
 pc_wineload = aggregate(pcs2$PC1+pcs2$PC2, by= list(pcs2$Variety), FUN = mean)
 
-image = qplot(x = true, y = predicted, fill=value, data=(melt(predconfmat$result[order(pc_wineload$x),order(pc_wineload$x)])),geom="tile")+theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
+image = qplot(x = true, y = predicted, fill=value, data=(melt(predconfmat$result[order(pc_wineload$x),order(pc_wineload$x)])),geom="raster")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
 plot(image)
 
 ```
@@ -200,7 +206,7 @@ Until then - let's get back to our question - how well can we *really* tell apar
 
 First - let's find what classifier performs best for the categories we want to classify
 
-```{r classification_evaluation, include=TRUE, results='hide'}
+```{r classification_evaluation, include=TRUE, echo = FALSE, results='hide'}
 ## but can we assess multiple learners on a range of tasks? 
 
 ##
@@ -276,7 +282,7 @@ plotBMRBoxplots(bmr, measure = ber, style = "violin", pretty.names = TRUE) +
 
 it seems like both support vector machines (SVM) and randomForests (rf) do the trick - they're the best at classifying most datasets - though are they efficient? 
 
-```{r}
+```{r include=TRUE, results='hide', echo = FALSE,}
 
 # evaluate on the basis of time it takes to train the model
 plotBMRBoxplots(bmr, measure = timetrain, style = "violin", pretty.names = TRUE) +
@@ -288,7 +294,7 @@ plotBMRBoxplots(bmr, measure = timetrain, style = "violin", pretty.names = TRUE)
 
 though, for this data the svms are a fair bit quicker to train - so let's use those going foward. 
 
-```{r classification_how_many_PCs, include=TRUE, results='hide'}
+```{r classification_how_many_PCs, include=TRUE, echo = FALSE, results='hide'}
 ## ok - we can classify AND have a sense of what works best
 ## now, how many dimensions are required to really reach this level of effective classification
 ## or, to put it another way: what's the dimensionality of wine taste ?
@@ -305,7 +311,7 @@ plot(pc_results$sdev/sum(pc_results$sdev))
 ```
 If we were using a standard "elbow method" to evaluate the dimensionality of this data - perhaps we'd take 12, 25 or 50 PCs on the basis that adding more gave diminising returns that said
 
-```{r classification_how_many_PCs2, include=TRUE, results='hide'}
+```{r classification_how_many_PCs2, include=TRUE, echo = FALSE, results='hide'}
 ## and let's look at how those eigenvalues sum to % total variance explained
 
 plot(cumsum(pc_results$sdev/sum(pc_results$sdev)))
@@ -314,7 +320,7 @@ plot(cumsum(pc_results$sdev/sum(pc_results$sdev)))
 
 If we were to go off the PCA alone - we might think we need 150-200 dimensions to explain 80% of the variance in terms used to describe wines -- but that doesn't seem to match how many dimensions are needed to seperate out reds from whites or reds from other reds -- two PCs seemed to do pretty good in the scatter plots above.  Let's take a more pragmatic approach - how many dimensions do we need to get to 80% of our max ability to classify -- more dimensions often gets us better classification, but how many do we need to get us most of the way there? 
 
-```{r classification_how_many_PCs3, include=TRUE, results='hide'}
+```{r classification_how_many_PCs3, include=TRUE, echo = FALSE, results='hide'}
 
 
 ## how does this relate to our ability to classify? 
@@ -437,7 +443,7 @@ plt1 <- ggplot(xdata) +
   xlab('number of PCs')+ylab('fracton of total classifcation') + 
   
   scale_colour_manual(name = 'Classification of:', 
-                      values =c('c1'='Blue','c2'='Orange','c3'='Red'), labels = c('Category','6 Big Varieties','All Varieties'))+
+                      values =c('c1'='Blue','c2'='Orange','c3'='Red'), labels = c('Category','5 Big Varieties','All Varieties'))+
   
   scale_x_log10(breaks = npcs[c(1:10,12,14,16,19)], limits = c(.9, 251))
 
