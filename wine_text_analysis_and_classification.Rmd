@@ -7,16 +7,15 @@ output:
 ---
 
 ### I don't understand wine.  Can data fix that? 
+I like wine, but in spite of [some](https://infocus.emc.com/william_schmarzo/data-scientist-quest-perfect-wine/) [fun](https://www.r-bloggers.com/data-scientist-with-a-wine-hobby-part-ii/) [analysis](https://murillogroupmsu.com/wine/) of wines recently, I still don't quite understand wines the way I want to. The analysis I'd love to have would simplify all the many ways people describe wines into a few features that show how different kinds of wine relate to one another.
 
-I *like* wine, but there are several layers of complication and fussyness that, for me, get in the way.  
+The prototypical example of what I'd love is something similar to what's been done with scotch whiskey. That's thanks to some [nice analysis](http://whiskyanalysis.com/index.php/methodology-introduction/methodology-flavour-comparison/) of [whiskey data](https://www.mathstat.strath.ac.uk/outreach/nessie/nessie_whisky.html), showing that for all the many different ways we can describe them, 50% of the difference among whiskies is due to one of two main features, either the "smokiness" or the "body". By sampling varieties along these axes, you can develop a thoughtful appreciation for whiskey.
 
-Whiskey, think I understand. That's thanks to some great analysis of [whiskey data](https://www.mathstat.strath.ac.uk/outreach/nessie/nessie_whisky.html), showing that for all the many different ways we can describe them, 60% of the difference among whiskies is due to one of two main features, either the "smokiness" or the "body" - and by sampling varieties along these axes, you can develop a thoughtful appreciation for whiskey.  
+Wine seems more complicated. While people typically use around a dozen terms to describe whiskies, people use hundreds of terms to describe wines, and it would be lovely to have a simple framework for parsing how these descriptions relate wines to one another. I compiled a [list](https://github.com/sadacca/wineR/blob/master/wine_terms.txt) capturing ~300 taste-related terms used to describe wine, and the question I'm wondering is: what's the simplest framework we can use to think about the taste of wine? Do we need all ~300 terms to tell reds from whites? How about Pinot Grigio from Pinot Noirs or Merlot from Malbec?
 
-Wine seems more complicated. While people typically use around a dozen terms to describe whiskies, people use hundreds of terms to describe wines, and it would be lovely to have a simple framework for parsing how these descriptions relate wines to one another.  I compiled a [list](https://github.com/sadacca/wineR/blob/master/wine_terms.txt) capturing ~300 taste-related terms used to describe wine, and the question I'm wondering is: what's the simplest framework we can use to think about the taste of wine?  Do we need all ~300 terms to tell reds from whites?  How about Pinot Grigio from Pinot Noirs or Merlot from Malbec?
+Before we dig into the data - there's one big caveat: if you dye a white wine red, [people start describing the taste in terms of a red wine](http://www.realclearscience.com/blog/2014/08/the_most_infamous_study_on_wine_tasting.html). The down side of this is that our 'taste-terms' might not be based on taste alone. I'm okay with that. The goal here is to better understand wines, and if this data give us information beyond "red wine is different than white wine", that's terrific. And, on the plus side: it should be pretty easy to tell white wines from red.
 
-Before we dig into the data - there's one big caveat: if you dye a white wine red, [people start describing the taste in terms of a red wine ](http://www.realclearscience.com/blog/2014/08/the_most_infamous_study_on_wine_tasting.html).  The down side of this is that our 'taste-terms' might not be based on taste alone.  I'm okay with that. The goal here is to better understand wines, and if this data give us information beyond "red wine is different than white wine", that's terrific. And, on the plus side: it should be pretty easy to tell white wines from red.
-
-So first - after loading the wine review data[^1], and cleaning and processing our database of wine reviews we'll create a simple model of how wine reviews map on to our selected wine terms.  This very simple model is often called a "bag-of-words" model. While there are many more complex ways of relating our wine reviews to one another (e.g. using context words in a continuous-bag-of-words or skip-gram model), it'd be quite promising if even this simple model could effectively compare wine reviews. 
+So first - after loading the wine review data[^1], and cleaning and processing our database of wine reviews we'll create a simple model of how wine reviews map on to our selected wine terms. This very simple model is often called a "bag-of-words" model, with each wine review described by the subset of listed terms identified in that review. While there are many more complex ways of relating our wine reviews to one another eiher using context to identify differences in how these terms are used like in a "skip-gram" model, or relating similar terms (e.g. tannins and tannic) as a single feature, it'd be quite promising if even this simple model could effectively compare wine reviews.
 
 ```{r initialize, include=FALSE}
 # this was initially written as an R Notebook, 
@@ -98,7 +97,7 @@ term_matrix <- matrix(unlist(term_matrix), ncol = nrow(wine_all.new), dimnames =
 
 ### Can we get a simpler picture of how wines relate by looking for similarities in how wine terms are used?
 
-Once we have our model of wine reviews, let's try and simplify it further.  We'll use principal components analysis (PCA) to see if there are a few features (i.e. principle components or PCs) that help separate wines from one another. 
+Now we have a model of wine reviews: ~7000 wine reviews, possessing a combination of ~300 features (where each term is a feature). Given this model, we'll use principal components analysis (PCA) to see if there are a few features that help separate wines from one another, with these features being principle components (PCs) of the PCA composed of weighted combinations of wine terms.
 
 
 ```{r pca_calc_and_projection, include=TRUE, echo = FALSE, results='hide', fig.height=9, fig.width=9}
@@ -137,7 +136,7 @@ multiplot(cols = 2, plt1,plt2,plt3,plt4)
 ```
  
  
-So, this is pretty nice for our simplified model.  Projecting our wines onto the two featues that best seperate wines from one another (PC1 and PC2), we can in fact separate white wines from reds just like we expected.  As a nice sanity check, it looks like Rosé wines fall right across the edges of the red/white distributions which makes a fair bit of sense.  Even nicer though, and for me way more interesting is that the difference *within* reds is just as big as the differences *between* whites and reds.  This IS quite surprising. It means that on this red-white axis (and it really does seem to be a single dimension of variation) there are white-ish reds and 'average' reds and really-red reds.  Better yet, there's some reasonable variability among how whites are described too, and some whites are really white.  It just so happens two of my personal favorite varietals sit at the edge of this white-red axis, with "Grüner Veltliner" being among the whitest of the whites and "Sangiovese" being among the reddest of the reds.  So far, I'm thrilled with this simple result.  But with all the individual datapoints for each wine overlain, it's tough to get a sense for exactly how each wine variety, on average, relates to on another.  If we take the center of each wine variety's cloud of points, do we see look quite as good?
+So, this is pretty nice for our simplified model. Each plot shows a subset of wines from the database, projected onto the two features that best show the differences among individual wines (PC1 and PC2).  Based on these features, we can tell white wines from reds just like we expected. This is clearest in the top-left plot, showing all wines labeled as Red Blends, White Blends, or Rosé (which can be made from either traditionally red or white grapes and often has similarities to both red and white wines).  As a nice sanity check, it looks like Rosé wines fall right across both the red and white distributions, connecting the two. One surprise is that the difference <em>within</em> red wines is just as big as the differences <em>between</em> whites and reds.  What's particularly striking about this spread is that the variation among red wines is primarily along PC1. There's some reasonable variability among how whites are described too, but most variation among individual whites is instead across PC2.  One takeaway is that that different words are indeed used to describe red and white wines, since different features are best at distinguishing reds from one another and whites from one another (and these features are constructed from weighting the taste-terms differently).  So far, I'm thrilled with this simple result. But with all the individual datapoints for each wine overlain in each of these scatter plots, it's tough to get a sense for exactly how each wine variety, on average, relates to all the others. If we take the center of each wine variety's cloud of individual wine reviews, do we see a similar pattern of variation among wine varieties?
 
   
 
@@ -155,7 +154,7 @@ ggplot(pc_wineload, aes(x = PC1, y = PC2, label= Group.1))+ geom_point(color = '
  
  
  
-This is a terrific bit of insight into how varietals compare to one another, on average.  While the spread of group means obviously not as big as individual examples, there is a bit of variation within the white and red clusters (with a fun little "really red" group out at the top right corner of the plot). This gives us a simple framework for thinking about different grapes. But what are the terms that were important for making these principle components?  What makes up this white-red axis?   Let's check out the loadings on the first two PCs.
+This is a terrific bit of insight into how varietals compare to one another, on average. While the spread of these group means aren't as big as the spread in individual examples, there is still variation within the white and red clusters (with a fun little "really red" group now visible out at the top right corner of the plot), with variation among reds still primarily along PC1 and whites still along PC2.  This visualization gives us a simple framework for thinking about different grapes, in a way that seems pretty sensible. Now, what are the terms that were important for making these principle components?  To get a better sense, let's check out how individual words contribute to the first two PCs.
  
  
  
@@ -171,14 +170,13 @@ plot(textplt1)
 ```
  
   
-Ok so this makes sense, PC1 seems to call out a number of big red wine terms, as tannins, cherry, spice and raspberry flavor all play a big role in PC1, perhaps why the spread of red wines was greatest on PC1. Similarly, the spread of whites was greatest on PC2, and in fact PC2 seems to be loaded with many traditionally white-wine terms: apple, lemon, pear, peach, and lime all fall heavily on this axis.
-
+Ok so this makes sense, PC1 seems to call out a number of big red wine terms, as tannins, cherry, spice and raspberry flavour all play a big role in PC1, perhaps why the spread of red wines was greatest on PC1. Similarly, the spread of whites was greatest on PC2, and in fact PC2 seems to be loaded with many traditionally white-wine terms: apple, lemon, pear, peach, and lime all fall heavily on this axis.
  
  
  
 ### Can we identify what kind of wine was reviewed based on these features? 
 
-If we have all this information to tell apart wines, how well can we do at classifying wines by category or varietal from these terms?  To start, let's do a quick classification of just the "Big" wines - varieties that have more than 300 reviews in our database - can we tell them apart?  
+If we have all this information to tell apart wines, how well can we do at classifying wines by category or varietal from these terms? Does this model actually distil useful information? To start, let's do a quick classification of just the "Big" wines - varieties that have more than 300 reviews in our database - can we tell them apart? For this classification we'll use support vector machines on reviews projected onto the first few principle components, though any classifier that can handle multiple classes performs well.
  
  
 ```{r classification_trial, include=TRUE, results='hide', echo = FALSE, fig.height=6, fig.width=8}
@@ -239,13 +237,11 @@ plot(image)
 ```
 
 
-They look like they classify pretty well. For the most part, we can tell that a wine came from a particular variety and if we're misclassifying, it's not just random.  We're misclassifying based on wines that taste similarly, as if some Merlots really taste like (or, were described like) a Cabernet.  
+They look like they classify pretty well: on average 75% of reviews were correctly assigned to the variety they belonged to. For the most part, we can tell that a wine came from a particular variety and if we're misclassifying, it's not just random. We're misclassifying based on wines that taste similarly, as if some Pinot Noirs really taste like (or, were described like) a Cabernet.
 
-Here's an interesting thought: Could we use this model to find individual wines that are particularly good examples of their class (like an ur-merlot) or wines that really taste like other things (e.g. can I find a cabernet that tastes like a white wine?).  In fact, I just wrote a shiny app to do this, [right here](https://sadacca.shinyapps.io/wine-findr/) if you're interested in playing with the underlying data. 
+Here's an interesting thought: Could we use this model to find individual wines that are particularly good examples of their class (like an ur-merlot) or wines that really taste like other things (e.g. can I find a cabernet that tastes like a white wine?). In fact, I just wrote a shiny app to do this, [right here](https://sadacca.shinyapps.io/wine-findr/) if you're interested in playing with the underlying data.
 
-
-Until then - let's get back to our question: how well can we really tell apart wines based on these reviews, and how many features do we need to do that? 
-
+Until then - let's get back to our question: how well can we really tell apart wines based on these reviews, and how many features do we need to do that?
 
 
 ### How many features do you need to identify wines by category or variety? 
@@ -292,8 +288,7 @@ multiplot(plt1,plt2, cols = 2)
 ```
 
 
-
-If we were using a standard "elbow method" to evaluate the dimensionality of this data - perhaps we'd take 12, 25 or 50 PCs on the basis that adding more gives quickly diminising returns. Alternatively, if we were using % total variance explained to choose features, we'd need 150-200 dimensions to explain 90% of the variance in terms used to describe wines.  However, that doesn't seem to match how many dimensions are needed to seperate out reds from whites or reds from other reds, as just two PCs seemed to do pretty good in the scatter plots above.  Let's take a more pragmatic approach - how many dimensions do we need to get to 80% or 90% of our max ability to classify?  More dimensions often gets us better classification, but how many do we need to get us most of the way there with the simplest set of features possible? 
+When deciding how many features (like our principle components) to include in simplified model of the underlying data, there are a few common heuristics. One commonly used with PCA is the "elbow method" to pick the PC past which all PCs have a similar and low ability to explain the variance in the data. This is done using a "scree plot" of eigenvalues for the principle components analysis, plotted above on the left. Each PC has a decreasing ability to explain the variation among wine reviews. Beyond 12 PCs, each additional PC adds a small bit of explanatory power. One other common heuristic uses the percent of the total variance explained to choose features; by this approach we'd need 150-200 dimensions to explain 90% of the total variance among wine reviews. For my question, the key problem with these heuristics is that they're both focused on any and all variance in the underlying data, and my interest was a bit more specific. My initial question was: how many features were required to tell wines apart, either by category (white from red) or variety (Cabernet from Pinot). One solution is to simply classify the data with different numbers of features and see how well the classification performs. With this approach we can ask a very specific question that addresses my initial goal: how many dimensions do we need to get to 80% or 90% of our peak ability to classify?
 
 
 ```{r classification_how_many_PCs3, include=TRUE, echo = FALSE, results='hide'}
@@ -429,7 +424,7 @@ plot(plt1)
 
 
 
-As it turns out (perhaps unsurprisingly) it looks like the number of relevant dimensions for thinking about wine taste depends highly on context.  In the context of telling broad categories of wines apart, all you need are the 2 dimensions plotted earlier. These give you 95% of your ability to classify categories.  While these two dimensions also allow you to tell apart some wine varieties (giving you >50% of your total ability to classify wines), to do better you need to consider more ways in which wines vary. Somewhere between 6 and 15 dimensions are needed to give us 80% of our classification ability, with ~50 dimensions giving us near-peak classification performance.
+As it turns out (perhaps unsurprisingly) it looks like the number of relevant dimensions for thinking about wine taste depends highly on context. The above plot normalizes classification accuracy to the peak accuracy for each kind of classification (classifying wines by category had a cross-validated accuracy of 95%, while the classifier was 75% accurate with big grapes and 60% accurate telling apart all varieties). In the context of telling broad categories of wines apart, all you need are the 2 dimensions plotted earlier. These give you 95% of your ability to classify reds from whites. While these two dimensions also allow you to tell apart some wine varieties (giving you >50% of your total ability to classify wines), to do better you need to consider more ways in which wines vary. Somewhere between 6 and 15 dimensions are needed to give us 80% of our classification ability, with ~50 dimensions giving us near-peak classification performance. So how many dimensions are required to understand how wines vary from one another? Either 2 features if you're trying to understand the differences between reds and whites but somewhere between 6-12 features are needed to understand the differences among individual wine varieties.
 
 
 
