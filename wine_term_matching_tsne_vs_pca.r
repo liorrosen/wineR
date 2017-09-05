@@ -10,6 +10,7 @@ suppressMessages(library(ggplot2))
 suppressMessages(library(gmodels))
 suppressMessages(library(reshape2))
 suppressMessages(library(SnowballC))
+suppressMessages(library(Rtsne))
 
 
 
@@ -100,37 +101,37 @@ wine_IDs <- unlist(split(wine_IDs, seq(nrow(wine_IDs))))
 term_matrix <- lapply(wine_reviews, function(x) clean_review(x,wine_terms))
 term_matrix <- matrix(unlist(term_matrix), ncol = nrow(wine_all.new), dimnames = list(NULL, wine_IDs))
 
-# once we have our matrix - let's combine data from terms with common stems
-# e.g. tannins and tannic
-new_term_matrix<-matrix(data = 0, ncol = nrow(wine_all.new), nrow = length(all_term_index+length(matched_terms.select)),dimnames = list(NULL, wine_IDs))
-
-# first, compile all terms with unique stems (e.g. stems with just one term)
-ctr=0
-for (ii in c(1:nrow(term_matrix))){
-  if (is.element(ii,all_term_index)){
-    ctr <-ctr+1
-    new_term_matrix[ctr,]<-term_matrix[ii,]
-  }
-}
-
-# next, compile all terms sharing a stem
-
-# for each shared stem
-for (ii in c(1:length(matched_terms.select))){
-  ctr <-ctr+1
-
-  # for each review
-  for (jj in c(1:ncol(new_term_matrix))){
-
-    # if one of the terms in the stem is found in the review
-    if(sum(term_matrix[unlist(matched_terms.select[ii]),jj])>1){
-
-      #mark the stem as found in the review
-    new_term_matrix[ctr,jj]<-1
-
-    }
-  }
-}
+# # once we have our matrix - let's combine data from terms with common stems
+# # e.g. tannins and tannic
+# new_term_matrix<-matrix(data = 0, ncol = nrow(wine_all.new), nrow = length(all_term_index+length(matched_terms.select)),dimnames = list(NULL, wine_IDs))
+# 
+# # first, compile all terms with unique stems (e.g. stems with just one term)
+# ctr=0
+# for (ii in c(1:nrow(term_matrix))){
+#   if (is.element(ii,all_term_index)){
+#     ctr <-ctr+1
+#     new_term_matrix[ctr,]<-term_matrix[ii,]
+#   }
+# }
+# 
+# # next, compile all terms sharing a stem
+# 
+# # for each shared stem
+# for (ii in c(1:length(matched_terms.select))){
+#   ctr <-ctr+1
+# 
+#   # for each review
+#   for (jj in c(1:ncol(new_term_matrix))){
+# 
+#     # if one of the terms in the stem is found in the review
+#     if(sum(term_matrix[unlist(matched_terms.select[ii]),jj])>1){
+# 
+#       #mark the stem as found in the review
+#     new_term_matrix[ctr,jj]<-1
+# 
+#     }
+#   }
+# }
 
 ###############################################################################
 ## OK.  So we've got ~220 features (terms) to judge wine similarity
@@ -139,6 +140,12 @@ for (ii in c(1:length(matched_terms.select))){
 
 ## to simplify the 220, let's do PCA on that new term matrix
 pc_results <- prcomp(term_matrix) 
+
+tsne_results <- Rtsne(t(term_matrix), check_duplicates = FALSE)
+tsn_bound <- cbind(as.data.frame(tsne_results$Y),wine_all.new)
+
+xyz<-ggplot(data = tsn_bound, aes(x = V1, y = V2, color = Category)) +geom_point()
+plot(xyz)
 
 ## and bind wine features to the PCS for easy sorting 
 pcs <- cbind(pc_results$rotation,wine_all.new)
@@ -163,19 +170,33 @@ plt4 <- ggplot(subset(pcs,Category %in% c("Dessert", "Sparkling","Port/Sherry"))
                aes(x = PC1, y = PC2, colour = Category)) + geom_point( alpha = 1/2)  + guides(col = guide_legend(nrow = 2))+ theme(legend.position = "bottom") + xlim(-.004, .0044) + ylim(-.0041, .025)
 
 
+## now let's structure a plot on the basis of wine types -- 
+#perhaps red vs white vs rose?
+tplt1 <- ggplot(subset(tsn_bound ,Variety %in% c("White Blend","Rosé", "Red Blend")), 
+               aes(x = V1, y = V2, colour = Variety)) + geom_point( alpha = 1/2) + guides(col = guide_legend(nrow = 2)) + theme(legend.position = "bottom")
+
+#the big grapes?  
+tplt2 <- ggplot(subset(tsn_bound,Variety %in% c("Chardonnay",  "Sauvignon Blanc","Cabernet Sauvignon","Sangiovese")), 
+               aes(x = V1, y = V2, colour = Variety)) + geom_point( alpha = 1/2)  + guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
+
+#some little grapes?
+tplt3 <- ggplot(subset(tsn_bound,Variety %in% c("Grüner Veltliner", "Petit Verdot", "Viognier", "Cabernet Franc","Malbec", "Nebbiolo")), 
+               aes(x = V1, y = V2, colour = Variety)) + geom_point( alpha = 1/2) + guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom") 
+
+#desserts, ports and bubbly?
+tplt4 <- ggplot(subset(tsn_bound,Category %in% c("Dessert", "Sparkling","Port/Sherry")), 
+               aes(x = V1, y = V2, colour = Category)) + geom_point( alpha = 1/2)  + guides(col = guide_legend(nrow = 2))+ theme(legend.position = "bottom")
+
+
 source("multiplot.r")
 multiplot(cols = 2, plt1,plt2,plt3,plt4)
 
+
+source("multiplot.r")
+multiplot(cols = 2, tplt1,tplt2,tplt3,tplt4)
+
 #wine_terms[order(pc_results$x[,1])]
 #wine_terms[order(pc_results$x[,2])]
-
-textplt1 <- ggplot(as.data.frame(pc_results$x), aes(x=PC1, y=PC2, label = wine_terms)) + geom_text() +geom_label()
-textplt2 <- ggplot(as.data.frame(pc_results$x), aes(x=PC3, y=PC4, label = wine_terms)) + geom_text()+geom_label()
-
-plot(textplt2)
-
-library(GGally)
-ggpairs(subset(pcs,Variety %in% c("Champagne Blend",  "Grüner Veltliner", "Merlot","Sangiovese")), columns = 1:3, aes(colour = Variety))
 
 #####################################################################
 # well, now that we've got features and data - let's try and classify
@@ -188,10 +209,15 @@ pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
 
 
 
-#mldata = cbind(pcs2[,1:150],pcs2[,239])
-mldata = cbind(pcs2[,1:150],pcs2[,296])
 
-colnames(mldata)[151] <- "Variety"
+tns2 <- tsn_bound %>% group_by(Variety) %>% filter(n() >= 300) %>% ungroup() %>% as.data.frame()
+tns2 <- tns2 %>% filter(!grepl("Blend",tns2$Variety, fixed=TRUE))
+
+
+#mldata = cbind(pcs2[,1:150],pcs2[,239])
+mldata = cbind(pcs2[,1:2],pcs2[,296])
+
+colnames(mldata)[3] <- "Variety"
 
 
 ## 1) Define the task
@@ -213,13 +239,13 @@ model = train(lrn, task, subset = train.set)
 ## 4) Make predictions
 ## Predict values of the response variable for new observations by the trained model
 ## using the other part of the data as test set
-pred = predict(model, task = task, subset = test.set)
+pred_pc = predict(model, task = task, subset = test.set)
 
 ## 5) Evaluate the learner
 ## Calculate the mean misclassification error and accuracy
-performance(pred, measures = list(mmce, acc, ber, kappa))
+performance(pred_pc, measures = list(mmce, acc, ber, kappa))
 
-predconfmat <- calculateConfusionMatrix(pred = pred)
+predconfmat <- calculateConfusionMatrix(pred = pred_pc)
 
 ## before plotting we need to scale the data (to the percent of wines classified per bin per column)
 #predconfmat$result <- t(scale(t(predconfmat$result), center = FALSE, scale = TRUE))
@@ -229,8 +255,53 @@ predconfmat$result <- t(apply(predconfmat$result, 1, function(x)100*(x-min(x))/(
 ## now sort those wines in a sensible way
 pc_wineload = aggregate(pcs2$PC1+pcs2$PC2, by= list(pcs2$Variety), FUN = mean)
 
-image = qplot(x = true, y = predicted, fill=value, data=(melt(predconfmat$result[order(pc_wineload$x),order(pc_wineload$x)])),geom="tile")+theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
+image_pc = qplot(x = true, y = predicted, fill=value, data=(melt(predconfmat$result[order(pc_wineload$x),order(pc_wineload$x)])),geom="tile")+theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
 plot(image)
+
+
+#mldata = cbind(pcs2[,1:150],pcs2[,239])
+mldata = cbind(tns2[,1:2],pcs2[,296])
+
+colnames(mldata)[3] <- "Variety"
+
+
+## 1) Define the task
+## Specify the type of analysis (e.g. classification) and provide data and response variable
+task = makeClassifTask(data = mldata, target = "Variety")
+
+## 2) Define the learner
+## Choose a specific algorithm (e.g. linear discriminant analysis)
+lrn = makeLearner("classif.svm") #svm and ksvm best, then cforest, next glmnet then xgboost good too
+
+n = nrow(mldata)
+train.set = sample(n, size = 2/3*n)
+test.set = setdiff(1:n, train.set)
+
+## 3) Fit the model
+## Train the learner on the task using a random subset of the data as training set
+model = train(lrn, task, subset = train.set)
+
+## 4) Make predictions
+## Predict values of the response variable for new observations by the trained model
+## using the other part of the data as test set
+pred_tn = predict(model, task = task, subset = test.set)
+
+## 5) Evaluate the learner
+## Calculate the mean misclassification error and accuracy
+performance(pred_tn, measures = list(mmce, acc, ber, kappa))
+
+predconfmat <- calculateConfusionMatrix(pred = pred_tn)
+
+## before plotting we need to scale the data (to the percent of wines classified per bin per column)
+#predconfmat$result <- t(scale(t(predconfmat$result), center = FALSE, scale = TRUE))
+predconfmat$result <- t(apply(predconfmat$result, 1, function(x)100*(x-min(x))/(max(x)-min(x))))
+
+
+## now sort those wines in a sensible way
+pc_wineload = aggregate(pcs2$PC1+pcs2$PC2, by= list(pcs2$Variety), FUN = mean)
+
+image_tn = qplot(x = true, y = predicted, fill=value, data=(melt(predconfmat$result[order(pc_wineload$x),order(pc_wineload$x)])),geom="tile")+theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
+multiplot(cols = 2,image_pc,image_tn)
 
 #########################################################################################
 ## ok - classification works, and when it fails, the model generalizes in a sensible way
