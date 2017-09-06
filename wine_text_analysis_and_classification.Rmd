@@ -157,7 +157,7 @@ ggplot(pc_wineload, aes(x = PC1, y = PC2, label= Group.1))+ geom_point(color = '
  
  
  
-This is a terrific bit of insight into how varietals compare to one another, on average. While the spread of these group means aren't as big as the spread in individual examples, there is still variation within the white and red clusters (with a fun little "really red" group now visible out at the top right corner of the plot), with variation among reds still primarily along PC1 and whites still along PC2.  This visualization gives us a simple framework for thinking about different grapes, in a way that seems pretty sensible. Now, what are the terms that were important for making these principle components?  To get a better sense, let's check out how individual words contribute to the first two PCs.
+This is a terrific bit of insight into how varietals compare to one another, on average. While the spread of these group means aren't as big as the spread in individual examples, there is still plenty of variation within the white and red clusters (with fun little "really red" wines visible out at the right edge of the plot), all seperated by projection onto PC1.  This visualization gives us a simple framework for thinking about different grapes, in a way that seems pretty sensible. Now, what are the terms that were important for making these principle components?  To get a better sense, let's check out how individual words contribute to the first two PCs.
  
  
  
@@ -173,7 +173,7 @@ plot(textplt1)
 ```
  
   
-Ok so this makes sense, PC1 seems to call out a number of big red wine terms, as tannins, cherry, spice and raspberry flavour all play a big role in PC1, perhaps why the spread of red wines was greatest on PC1. Similarly, the spread of whites was greatest on PC2, and in fact PC2 seems to be loaded with many traditionally white-wine terms: apple, lemon, pear, peach, and lime all fall heavily on this axis.
+Ok so this makes sense, PC1 seems to call out a number of big red and white wine terms, as tannins, cherry, spice and plum flavour all play a big role in wines ending on the positive end of PC1, and apple, pear, peach, and citrus, traditionally white wine terms, play a role in wines falling on the negative side of PC1.  What's funny is that a single feature plays a strong role on wines falling along PC2 - and that's if the wine was described as "ripe", and secondarily, which I infer to be a signal that a wine is particularly "fruity", though I need to dig a bit deeper into how people use the term technically. 
  
  
  
