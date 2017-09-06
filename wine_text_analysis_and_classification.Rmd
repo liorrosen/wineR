@@ -106,7 +106,7 @@ options(warn=-1)
 ## can we use these to break down wine varieties in an interpretable way? 
 
 ## to simplify the 280, let's do PCA on that term matrix
-pc_results <- prcomp(t(term_matrix))
+pc_results <- prcomp(t(term_matrix), scale=TRUE, center = TRUE, retx=TRUE)
 
 ## and bind wine features to the PCS for easy sorting 
 pcs <- cbind(pc_results$x,wine_all.new)
@@ -194,7 +194,7 @@ pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 300) %>% ungroup() %>% as.da
 pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
 
 
-mldata = cbind(pcs2[,1:150],pcs2[,296])
+mldata = cbind(pcs2[,1:150],pcs2[,274])
 colnames(mldata)[151] <- "Variety"
 
 
@@ -227,14 +227,15 @@ predconfmat <- calculateConfusionMatrix(pred = pred)
 
 ## before plotting we need to scale the data (to the percent of wines classified per bin per column)
 #predconfmat$result <- t(scale(t(predconfmat$result), center = FALSE, scale = TRUE))
-predconfmat$result <- t(apply(predconfmat$result, 1, function(x)100*(x-min(x))/(max(x)-min(x))))
+predconfmat$result <- t(apply(predconfmat$result[,1:5], 1, function(x) 100*(x/sum(x))))
 
 
 ## now sort those wines in a sensible way for ordering the wines
 pc_wineload = aggregate(pcs2$PC1+pcs2$PC2, by= list(pcs2$Variety), FUN = mean)
+image_data = (melt(predconfmat$result[order(pc_wineload$x),order(pc_wineload$x)]))
 
-image = qplot(x = true, y = predicted, fill=value, data=(melt(predconfmat$result[order(pc_wineload$x),order(pc_wineload$x)])),geom="raster")+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))+scale_fill_continuous(name = "classification %:")
+image = qplot(x = true, y = predicted, fill=value, data=image_data,geom="raster")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))+scale_fill_continuous(name = "classification %:")+geom_text(label=round(image_data$value), color = "white")
 plot(image)
 
 ```
@@ -263,7 +264,7 @@ Until then - let's get back to our question: how well can we really tell apart w
 ## some UGLY shoehorning going on here, just to get the formatting right for ggplot
 ## there's an easier way, for sure, but it's still early-days with R for me
 ydata = data.frame(matrix(ncol = 1, nrow = length(pc_results$sdev)))
-ydata[1] <- 100*pc_results$sdev/sum(pc_results$sdev)
+ydata[1] <- 100*(pc_results$sdev^2)/sum((pc_results$sdev^2))
 ydata <- as.data.frame(tibble::rownames_to_column(ydata,"PC #"))
 ydata["PC #"]<- as.double(unlist(ydata["PC #"]))
 colnames(ydata[2]) <- "% Variance Explained"
@@ -272,7 +273,7 @@ colnames(ydata) <-c("PC #", "% Variance Explained")
 ydata1=as.data.frame(ydata)
 
 ydata = data.frame(matrix(ncol = 1, nrow = length(pc_results$sdev)))
-ydata[1] <- 100*cumsum(pc_results$sdev/sum(pc_results$sdev))
+ydata[1] <- 100*cumsum((pc_results$sdev^2)/sum((pc_results$sdev^2)))
 ydata <- as.data.frame(tibble::rownames_to_column(ydata,"PC #"))
 ydata["PC #"]<- as.double(unlist(ydata["PC #"]))
 colnames(ydata) <-c("PC #", "% Cumulative Variance Explained")
@@ -312,12 +313,12 @@ fit_pca_data<-function(pcs2, group2fit, niter, npcs){
     for (niter in c(1:niter)){
       
       if (group2fit == "Variety"){
-        mldata <- cbind(pcs2[,1:numpcs],pcs2[,296])
+        mldata <- cbind(pcs2[,1:numpcs],pcs2[,274])
         colnames(mldata)[numpcs+1] <- "Target"
       }
       
       if (group2fit == "Category"){
-        mldata <- cbind(pcs2[,1:numpcs],pcs2[,297])
+        mldata <- cbind(pcs2[,1:numpcs],pcs2[,275])
         colnames(mldata)[numpcs+1] <- "Target"
       }
       
