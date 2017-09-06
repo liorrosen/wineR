@@ -114,22 +114,22 @@ pcs <- cbind(pc_results$x,wine_all.new)
 ## now let's structure a plot on the basis of wine types -- 
 #perhaps red vs white vs rose?
 plt1 <- ggplot(subset(pcs,Variety %in% c("White Blend","Rosé", "Red Blend")), 
-               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + #xlim(-.004, .044) + ylim(-.041, .025) + 
+               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + xlim(-6, 9) + ylim(-7, 8) + 
   guides(col = guide_legend(nrow = 2)) + theme(legend.position = "bottom")
 
 #the big grapes?  
 plt2 <- ggplot(subset(pcs,Variety %in% c("Chardonnay",  "Sauvignon Blanc", "Merlot","Cabernet Sauvignon","Sangiovese")), 
-               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2)  + #xlim(-.004, .044) + ylim(-.041, .025) + 
+               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2)  +xlim(-6, 9) + ylim(-7, 8) +
   guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
 
 #some little grapes?
 plt3 <- ggplot(subset(pcs,Variety %in% c("Gr?ner Veltliner", "Viognier", "Cabernet Franc","Malbec", "Nebbiolo")), 
-               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + #xlim(-.004, .044) + ylim(-.041, .025) + 
+               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + xlim(-6, 9) + ylim(-7, 8) +
   guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
 
 #desserts, ports and bubbly?
 plt4 <- ggplot(subset(pcs,Category %in% c("Dessert", "Sparkling","Port/Sherry")), 
-               aes(x = PC1, y = PC2, colour = Category)) + geom_point( alpha = 1/2) + #xlim(-.004, .044) + ylim(-.041, .025) + 
+               aes(x = PC1, y = PC2, colour = Category)) + geom_point( alpha = 1/2) + xlim(-6, 9) + ylim(-7, 8) +
   guides(col = guide_legend(nrow = 2))+ theme(legend.position = "bottom")
 
 
