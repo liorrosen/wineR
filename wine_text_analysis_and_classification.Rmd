@@ -106,28 +106,31 @@ options(warn=-1)
 ## can we use these to break down wine varieties in an interpretable way? 
 
 ## to simplify the 280, let's do PCA on that term matrix
-pc_results <- prcomp(term_matrix) 
+pc_results <- prcomp(t(term_matrix))
 
 ## and bind wine features to the PCS for easy sorting 
-pcs <- cbind(pc_results$rotation,wine_all.new)
+pcs <- cbind(pc_results$x,wine_all.new)
 
 ## now let's structure a plot on the basis of wine types -- 
 #perhaps red vs white vs rose?
-plt1 <- ggplot(subset(pcs,Variety %in% c("White Blend","RosÈ", "Red Blend")), 
-               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + xlim(-.004, .044) + ylim(-.041, .025) + 
+plt1 <- ggplot(subset(pcs,Variety %in% c("White Blend","Ros√©", "Red Blend")), 
+               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + #xlim(-.004, .044) + ylim(-.041, .025) + 
   guides(col = guide_legend(nrow = 2)) + theme(legend.position = "bottom")
 
 #the big grapes?  
 plt2 <- ggplot(subset(pcs,Variety %in% c("Chardonnay",  "Sauvignon Blanc", "Merlot","Cabernet Sauvignon","Sangiovese")), 
-               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2)  + xlim(-.004, .044) + ylim(-.041, .025) + guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
+               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2)  + #xlim(-.004, .044) + ylim(-.041, .025) + 
+  guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
 
 #some little grapes?
-plt3 <- ggplot(subset(pcs,Variety %in% c("Gr¸ner Veltliner", "Viognier", "Cabernet Franc","Malbec", "Nebbiolo")), 
-               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + xlim(-.004, .044) + ylim(-.041, .025) + guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
+plt3 <- ggplot(subset(pcs,Variety %in% c("Gr?ner Veltliner", "Viognier", "Cabernet Franc","Malbec", "Nebbiolo")), 
+               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + #xlim(-.004, .044) + ylim(-.041, .025) + 
+  guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
 
 #desserts, ports and bubbly?
 plt4 <- ggplot(subset(pcs,Category %in% c("Dessert", "Sparkling","Port/Sherry")), 
-               aes(x = PC1, y = PC2, colour = Category)) + geom_point( alpha = 1/2) + xlim(-.004, .044) + ylim(-.041, .025) + guides(col = guide_legend(nrow = 2))+ theme(legend.position = "bottom")
+               aes(x = PC1, y = PC2, colour = Category)) + geom_point( alpha = 1/2) + #xlim(-.004, .044) + ylim(-.041, .025) + 
+  guides(col = guide_legend(nrow = 2))+ theme(legend.position = "bottom")
 
 
 source("multiplot.r") #it's googleable, also in the gitRepo
@@ -136,7 +139,7 @@ multiplot(cols = 2, plt1,plt2,plt3,plt4)
 ```
  
  
-So, this is pretty nice for our simplified model. Each plot shows a subset of wines from the database, projected onto the two features that best show the differences among individual wines (PC1 and PC2).  Based on these features, we can tell white wines from reds just like we expected. This is clearest in the top-left plot, showing all wines labeled as Red Blends, White Blends, or RosÈ (which can be made from either traditionally red or white grapes and often has similarities to both red and white wines).  As a nice sanity check, it looks like RosÈ wines fall right across both the red and white distributions, connecting the two. One surprise is that the difference <em>within</em> red wines is just as big as the differences <em>between</em> whites and reds.  What's particularly striking about this spread is that the variation among red wines is primarily along PC1. There's some reasonable variability among how whites are described too, but most variation among individual whites is instead across PC2.  One takeaway is that that different words are indeed used to describe red and white wines, since different features are best at distinguishing reds from one another and whites from one another (and these features are constructed from weighting the taste-terms differently).  So far, I'm thrilled with this simple result. But with all the individual datapoints for each wine overlain in each of these scatter plots, it's tough to get a sense for exactly how each wine variety, on average, relates to all the others. If we take the center of each wine variety's cloud of individual wine reviews, do we see a similar pattern of variation among wine varieties?
+So, this is pretty nice for our simplified model. Each plot shows a subset of wines from the database, projected onto the two features that best show the differences among individual wines (PC1 and PC2).  Based on these features, we can tell white wines from reds just like we expected. This is clearest in the top-left plot, showing all wines labeled as Red Blends, White Blends, or Ros√© (which can be made from either traditionally red or white grapes and often has similarities to both red and white wines).  As a nice sanity check, it looks like Ros√© wines fall right across both the red and white distributions, connecting the two. One surprise is that the difference within red and white wines is just as big as the differences between whites and reds.  What's particularly striking about this spread is that the differences between reds and whites is along a single feature - PC1. This is in contrast with PC2, which captures little difference between reds and whites, but instead captures much of the variability within each category.  One takeaway is that that different words are used to describe red and white wines, which will be loaded heavily on PC1.  Though nice, with all the individual datapoints for each wine overlain in each of these scatter plots, it's tough to get a sense for exactly how each wine variety, on average, relates to all the others. If we take the center of each wine variety's cloud of individual wine reviews, do we see a similar pattern of variation among wine varieties?
 
   
 
@@ -161,9 +164,9 @@ This is a terrific bit of insight into how varietals compare to one another, on 
 ```{r pca_loadings_plot, include=TRUE, results='hide', echo = FALSE, fig.height=8, fig.width=9}
 
 # render the terms from the pca
-textplt1 <- ggplot(as.data.frame(pc_results$x), aes(x=PC1, y=PC2, label = wine_terms)) + geom_text(check_overlap=TRUE,fontface = "bold", size = 3)+
+textplt1 <- ggplot(as.data.frame(pc_results$rotation), aes(x=PC1, y=PC2, label = wine_terms)) + geom_text(check_overlap=TRUE,fontface = "bold", size = 3)#+
 #+geom_label(label.size =NA, fontface = "bold", size = 3) +
-  xlim(-4, 28) + ylim(-19, 10) 
+  #xlim(-4, 28) + ylim(-19, 10) 
 
 plot(textplt1)
 
