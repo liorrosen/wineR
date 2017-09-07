@@ -14,7 +14,7 @@ library(httr)
 
 uastring = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.112 Safari/535.1'
 
-site = read_html(GET("http://www.winemag.com/?s=&drink_type=wine&pub_date_web=2017,2016&page=1", user_agent(uastring)))
+site = read_html(GET("http://www.winemag.com/?s=&drink_type=wine&wine_type=White&pub_date_web=2016&page=1", user_agent(uastring)))
 
 nr_pages <- html_nodes(site,".pagination li a") %>%
   html_text() %>% tail(.,1) %>% as.numeric
@@ -61,7 +61,7 @@ for(i in 1:500)
   
   cat("Wine review, page: ", i,"\n")
   
-  site = read_html(GET(paste0("http://www.winemag.com/?s=&drink_type=wine&pub_date_web=2017,2016&page=",i), user_agent(uastring)))
+  site = read_html(GET(paste0("http://www.winemag.com/?s=&drink_type=wine&wine_type=White&pub_date_web=2016&page=",i), user_agent(uastring)))
   
   wine <- html_nodes(site,".review-listing .title") %>%
     html_text()
@@ -91,7 +91,7 @@ for(i in 1:500)
   Wine_cellar[[i]] <- data.frame(wine_farms, wine_year, wine_name, points, price, wine_href, reviews, stringsAsFactors = F)
   
   # as a rule I always save the already collected data, just in case the scraper stops unexpectedly
-  saveRDS(Wine_cellar,"Wine_collection_V2.RDS")
+  saveRDS(Wine_cellar,"Wine_collection_2016WHITE.RDS")
   
   # I add in a sleep as not the flood the website that I am scraping with requests
   Sys.sleep(runif(1,0.2,5))

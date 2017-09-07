@@ -48,7 +48,13 @@ suppressMessages(library(reshape2))
 wine_terms<-t(read.csv("wine_terms.txt", sep = ",", header = F))
 
 # then, load the review data, scraped from the web using the scraper in this repository
-wine_cellar <- readRDS("wine_collection_V2.RDS")
+#wine_cellar <- readRDS("wine_collection_V2.RDS")
+#wine_all <- bind_rows(wine_cellar)
+
+wine_cellar1 <- readRDS("wine_collection_2016WHITE.RDS")
+wine_cellar2 <- readRDS("wine_collection_2016REDUS.RDS")
+wine_cellar3 <- readRDS("wine_collection_V2.RDS")
+wine_cellar <- c(wine_cellar1,wine_cellar2,wine_cellar3)
 wine_all <- bind_rows(wine_cellar)
 
 
@@ -77,6 +83,8 @@ wine_all.new <- wine_all.new %>% group_by(Variety) %>% filter(n() >= 50) %>% ung
 # was initially stripping out all wine blends (Portuguese wines are GREAT!!)
 # and forgot to remove this line before starting to pretty up the HTML output.  
 wine_all.new <- wine_all.new %>% filter(!grepl("Portuguese",wine_all.new$Variety, fixed=TRUE))
+wine_all.new <- subset(wine_all.new, !(Variety %in% c("Sauvignon")))
+
 
 
 # then, let's use that function on all wine reviews
@@ -91,13 +99,18 @@ wine_IDs <- unlist(split(wine_IDs, seq(nrow(wine_IDs))))
 # then using the function we made on each review
 term_matrix <- lapply(wine_reviews, function(x) clean_review(x,wine_terms))
 term_matrix <- matrix(unlist(term_matrix), ncol = nrow(wine_all.new), dimnames = list(NULL, wine_IDs))
+#term_matrix <- term_matrix %>% t()
+#wine_terms <- wine_terms[colSums(term_matrix)>5]
+#term_matrix <- term_matrix[,colSums(term_matrix)>5] %>% t()
+
+
 ```
 
 
 
 ### Can we get a simpler picture of how wines relate by looking for similarities in how wine terms are used?
 
-Now we have a model of wine reviews: ~7000 wine reviews, possessing a combination of ~300 features (where each term is a feature). Given this model, we'll use principal components analysis (PCA) to see if there are a few features that help separate wines from one another, with these features being principle components (PCs) of the PCA composed of weighted combinations of wine terms.
+Now we have a model of wine reviews: ~22000 wine reviews, possessing a combination of ~300 features (where each term is a feature). Given this model, we'll use principal components analysis (PCA) to see if there are a few features that help separate wines from one another, with these features being principle components (PCs) of the PCA composed of weighted combinations of wine terms.
 
 
 ```{r pca_calc_and_projection, include=TRUE, echo = FALSE, results='hide', fig.height=9, fig.width=9}
@@ -111,35 +124,40 @@ pc_results <- prcomp(t(term_matrix), scale=TRUE, center = TRUE, retx=TRUE)
 ## and bind wine features to the PCS for easy sorting 
 pcs <- cbind(pc_results$x,wine_all.new)
 
+##TESTICA
+#library(fastICA)
+#ica_results<-fastICA(t(term_matrix),2,row.norm = TRUE)
+#pcs<-cbind(ica_results$S,wine_all.new)
+#colnames(pcs)=c("PC1", "PC2", colnames(pcs[3:ncol(pcs)]))
+
 ## now let's structure a plot on the basis of wine types -- 
 #perhaps red vs white vs rose?
 plt1 <- ggplot(subset(pcs,Variety %in% c("White Blend","Rosé", "Red Blend")), 
-               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + xlim(-6, 9) + ylim(-7, 8) + 
-  guides(col = guide_legend(nrow = 2)) + theme(legend.position = "bottom")
+             aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + xlim(-6, 9) + ylim(-7, 8) + 
+guides(col = guide_legend(nrow = 2)) + theme(legend.position = "bottom")
 
 #the big grapes?  
-plt2 <- ggplot(subset(pcs,Variety %in% c("Chardonnay",  "Sauvignon Blanc", "Merlot","Cabernet Sauvignon","Sangiovese")), 
-               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2)  +xlim(-6, 9) + ylim(-7, 8) +
-  guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
+plt2 <- ggplot(subset(pcs,Variety %in% c("Chardonnay",  "Sauvignon Blanc", "Syrah","Cabernet Sauvignon","Sangiovese")), 
+             aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2)  +xlim(-6, 9) + ylim(-7, 8) +
+guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
 
-#some little grapes?
-plt3 <- ggplot(subset(pcs,Variety %in% c("Gr?ner Veltliner", "Viognier", "Cabernet Franc","Malbec", "Nebbiolo")), 
-               aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + xlim(-6, 9) + ylim(-7, 8) +
-  guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
+# plus histograms to suit
+hist1<-ggplot(subset(pcs,Variety %in% c("White Blend","Rosé", "Red Blend")), 
+             aes(x = PC1, fill = Variety))+geom_density(binwidth=0.1,alpha = 1)+theme(legend.position="none")+ xlim(-6, 9)
 
-#desserts, ports and bubbly?
-plt4 <- ggplot(subset(pcs,Category %in% c("Dessert", "Sparkling","Port/Sherry")), 
-               aes(x = PC1, y = PC2, colour = Category)) + geom_point( alpha = 1/2) + xlim(-6, 9) + ylim(-7, 8) +
-  guides(col = guide_legend(nrow = 2))+ theme(legend.position = "bottom")
+hist2<-ggplot(subset(pcs,Variety %in% c("Chardonnay",  "Sauvignon Blanc", "Syrah","Cabernet Sauvignon","Sangiovese")), 
+             aes(x = PC1, fill = Variety))+geom_density(binwidth=0.1,alpha = 1)+theme(legend.position="none")+ xlim(-6, 9)
+
+
 
 
 source("multiplot.r") #it's googleable, also in the gitRepo
-multiplot(cols = 2, plt1,plt2,plt3,plt4)
+multiplot(cols = 2, plt1,hist1,plt2,hist2)
 
 ```
  
  
-So, this is pretty nice for our simplified model. Each plot shows a subset of wines from the database, projected onto the two features that best show the differences among individual wines (PC1 and PC2).  Based on these features, we can tell white wines from reds just like we expected. This is clearest in the top-left plot, showing all wines labeled as Red Blends, White Blends, or Rosé (which can be made from either traditionally red or white grapes and often has similarities to both red and white wines).  As a nice sanity check, it looks like Rosé wines fall right across both the red and white distributions, connecting the two. One surprise is that the difference within red and white wines is just as big as the differences between whites and reds.  What's particularly striking about this spread is that the differences between reds and whites is along a single feature - PC1. This is in contrast with PC2, which captures little difference between reds and whites, but instead captures much of the variability within each category.  One takeaway is that that different words are used to describe red and white wines, which will be loaded heavily on PC1.  Though nice, with all the individual datapoints for each wine overlain in each of these scatter plots, it's tough to get a sense for exactly how each wine variety, on average, relates to all the others. If we take the center of each wine variety's cloud of individual wine reviews, do we see a similar pattern of variation among wine varieties?
+So, this is pretty nice for our simplified model. Each plot shows a subset of wines from the database, projected onto the two features that best show the differences among individual wines (PC1 and PC2).  Based on these features, we can tell white wines from reds just like we expected. This is clearest in the top-left plot, showing all wines labeled as Red Blends, White Blends, or Rosé (which can be made from either traditionally red or white grapes and often has similarities to both red and white wines).  As a nice sanity check, it looks like Rosé wines fall right across both the red and white distributions, connecting the two. One surprise is that the difference within red and white wines is just as big as the differences between whites and reds.  What's particularly striking about this spread is that the differences between reds and whites is along a single feature - PC1, most easily seen in the histograms below each scatterplot. This is in contrast with PC2, which captures little difference between reds and whites, but instead captures much of the variability within each category.  One takeaway is that that different words are used to describe red and white wines, which will be loaded heavily on PC1.  Though nice, with all the individual datapoints for each wine overlain in each of these scatter plots, it's tough to get a sense for exactly how each wine variety, on average, relates to all the others. If we take the center of each wine variety's cloud of individual wine reviews, do we see a similar pattern of variation among wine varieties?
 
   
 
@@ -150,7 +168,7 @@ suppressMessages(library(ggrepel))
 # that also aggregates by group (there are both white and red Pino Noirs.. did you know?)
 # though the results are similar, aside from the extra varieties (and blurring some of the categories)
 # fwiw this makes classification a *slightly* harder than it should otherwise be 
-pc_wineload = aggregate(pcs[1:150], by= list(pcs$Variety), FUN = mean)
+pc_wineload = aggregate(pcs[1:2], by= list(pcs$Variety), FUN = mean)
 ggplot(pc_wineload, aes(x = PC1, y = PC2, label= Group.1))+ geom_point(color = 'orange')+geom_label_repel(label.size =NA, fontface = "bold", size = 3)
 
 ```
@@ -173,13 +191,13 @@ plot(textplt1)
 ```
  
   
-Ok so this makes sense, PC1 seems to call out a number of big red and white wine terms, as tannins, cherry, spice and plum flavour all play a big role in wines ending on the positive end of PC1, and apple, pear, peach, and citrus, traditionally white wine terms, play a role in wines falling on the negative side of PC1.  What's funny is that a single feature plays a strong role on wines falling along PC2 - and that's if the wine was described as "ripe", and secondarily, which I infer to be a signal that a wine is particularly "fruity", though I need to dig a bit deeper into how people use the term technically. 
+Ok so this makes sense, PC1 seems to call out a number of big red and white wine terms, as tannins, cherry, spice and plum flavour all play a big role in wines ending on the positive end of PC1, and apple, pear, peach, and citrus, traditionally white wine terms, play a role in wines falling on the negative side of PC1. PC2 doesn't lend itself to nearly as simple an interpretation, but it, along with the next few dimensions add substantially to the abiliyt to classify individual wine varieties from one another.
  
  
  
 ### Can we identify what kind of wine was reviewed based on these features? 
 
-If we have all this information to tell apart wines, how well can we do at classifying wines by category or varietal from these terms? Does this model actually distil useful information? To start, let's do a quick classification of just the "Big" wines - varieties that have more than 300 reviews in our database - can we tell them apart? For this classification we'll use support vector machines on reviews projected onto the first few principle components, though any classifier that can handle multiple classes performs well.
+If we have all this information to tell apart wines, how well can we do at classifying wines by category or varietal from these terms? Does this model actually distil useful information? To start, let's do a quick classification of just the "Big" wines - varieties that have more than 800 reviews in our database - can we tell them apart? For this classification we'll use support vector machines on reviews projected onto the first few principle components, though any classifier that can handle multiple classes performs well.
  
  
 ```{r classification_trial, include=TRUE, results='hide', echo = FALSE, fig.height=6, fig.width=8}
@@ -190,12 +208,12 @@ If we have all this information to tell apart wines, how well can we do at class
 # there was a code block initially devoted to finding the best classifier 
 # with mlr's benchmark() function - but was secondary to addressing wine dimensionality 
 
-pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 300) %>% ungroup() %>% as.data.frame()
+pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 800) %>% ungroup() %>% as.data.frame()
 pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
 
 
-mldata = cbind(pcs2[,1:150],pcs2[,274])
-colnames(mldata)[151] <- "Variety"
+mldata = cbind(pcs2[,1:20],pcs2[,274])
+colnames(mldata)[21] <- "Variety"
 
 
 ## 1) Define the task
@@ -227,11 +245,11 @@ predconfmat <- calculateConfusionMatrix(pred = pred)
 
 ## before plotting we need to scale the data (to the percent of wines classified per bin per column)
 #predconfmat$result <- t(scale(t(predconfmat$result), center = FALSE, scale = TRUE))
-predconfmat$result <- t(apply(predconfmat$result[,1:5], 1, function(x) 100*(x/sum(x))))
+predconfmat$result <- t(apply(predconfmat$result[,1:dim(predconfmat$result)[1]-1], 1, function(x) 100*(x/sum(x))))
 
 
 ## now sort those wines in a sensible way for ordering the wines
-pc_wineload = aggregate(pcs2$PC1+pcs2$PC2, by= list(pcs2$Variety), FUN = mean)
+pc_wineload = aggregate(pcs2$PC1, by= list(pcs2$Variety), FUN = mean)
 image_data = (melt(predconfmat$result[order(pc_wineload$x),order(pc_wineload$x)]))
 
 image = qplot(x = true, y = predicted, fill=value, data=image_data,geom="raster")+
@@ -352,12 +370,12 @@ fit_pca_data<-function(pcs2, group2fit, niter, npcs){
 
 
 niter = 3
-npcs = c(1,2,3,4,6,8,10,15,20,30,40,50,75,100,125,150,200,225,250)
+npcs = c(1,2,3,6,10,15,30,75,125,175,250)
 
 
 # like the most common wines 
 
-pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 300) %>% ungroup() %>% as.data.frame()
+pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 800) %>% ungroup() %>% as.data.frame()
 pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
 group2fit = "Variety"
 
@@ -365,7 +383,7 @@ class_biggrapes_performance <- fit_pca_data(pcs2, group2fit, niter, npcs )
 
 # or lesser wines 
 
-pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 50) %>% ungroup() %>% as.data.frame()
+pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 250) %>% ungroup() %>% as.data.frame()
 pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
 group2fit = "Variety"
 
@@ -374,7 +392,8 @@ class_smallgrapes_performance <- fit_pca_data(pcs2, group2fit, niter, npcs )
 
 # or or wine categories
 
-pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 50) %>% ungroup() %>% as.data.frame()
+pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 250) %>% ungroup() %>% as.data.frame()
+pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
 pcs2 <- subset(pcs2,Category %in% c("White", "Red"))
 group2fit = "Category"
 
@@ -420,13 +439,13 @@ plt1 <- ggplot(xdata) +
   scale_colour_manual(name = 'Classification of:', 
                       values =c('c1'='Blue','c2'='Orange','c3'='Red'), labels = c('Category','5 Big Varieties','All Varieties'))+
   
-  scale_x_log10(breaks = npcs[c(1:10,12,14,16,19)], limits = c(.9, 251))
+  scale_x_log10(breaks = npcs[c(1:10,12,14,16)], limits = c(.9, 251))
 
 plot(plt1)
 
 ```
 
-As it turns out (perhaps unsurprisingly) it looks like the number of relevant dimensions for thinking about wine taste depends highly on context. The above plot normalizes classification accuracy to the peak accuracy for each kind of classification (classifying wines by category had a cross-validated accuracy of 95%, while the classifier was 75% accurate with big grapes and 60% accurate telling apart all varieties). In the context of telling broad categories of wines apart, all you need are the two dimensions plotted earlier. These give you all of your ability to classify reds from whites. While these two dimensions also allow you to tell apart some wine varieties relatively well (giving you &gt;60% of your total ability to classify wines), to do better you need to consider more ways in which wines vary. Somewhere between 4 and 10 dimensions are needed to give us 95% of our classification ability, with ~30 dimensions giving us near-peak classification performance. Either way, there's a modest number of ways in which wines are described, giving a bit of hope for a somewhat simpler way of how wines relate to one another.
+As it turns out (perhaps unsurprisingly) it looks like the number of relevant dimensions for thinking about wine taste depends highly on context. The above plot normalizes classification accuracy to the peak accuracy for each kind of classification (classifying wines by category had a cross-validated accuracy of 95%, while the classifier was 75% accurate with big grapes and 60% accurate telling apart all varieties). In the context of telling broad categories of wines apart, all you need are the two dimensions plotted earlier. These give you all of your ability to classify reds from whites. While these two dimensions also allow you to tell apart some wine varieties relatively well (giving you &gt;70% of your total ability to classify wines), to do better you need to consider more ways in which wines vary. Somewhere between 4 and 10 dimensions are needed to give us 95% of our classification ability, with ~15 dimensions giving us near-peak classification performance. Either way, there's a modest number of ways in which wines are described, giving a bit of hope for a somewhat simpler way of how wines relate to one another.
 
 
 ----------------------------------------------------------------------------------------------------------------------------

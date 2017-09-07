@@ -102,7 +102,7 @@ term_matrix <- matrix(unlist(term_matrix), ncol = nrow(wine_all.new), dimnames =
 
 # once we have our matrix - let's combine data from terms with common stems
 # e.g. tannins and tannic
-new_term_matrix<-matrix(data = 0, ncol = nrow(wine_all.new), nrow = length(all_term_index+length(matched_terms.select)),dimnames = list(NULL, wine_IDs))
+new_term_matrix<-matrix(data = 0, ncol = nrow(wine_all.new), nrow = length(all_term_index)+length(matched_terms.select),dimnames = list(NULL, wine_IDs))
 
 # first, compile all terms with unique stems (e.g. stems with just one term)
 ctr=0
@@ -138,16 +138,16 @@ for (ii in c(1:length(matched_terms.select))){
 ## AND DOES THIS LOOK LIKE THE UNSTEMMED PCA?
 
 ## to simplify the 220, let's do PCA on that new term matrix
-pc_results <- prcomp(new_term_matrix) 
+pc_results <- prcomp(t(new_term_matrix))
 
 ## and bind wine features to the PCS for easy sorting 
-pcs <- cbind(pc_results$rotation,wine_all.new)
+pcs <- cbind(pc_results$x,wine_all.new)
 pc1_wineload = aggregate(pcs$PC1, by= list(pcs$Variety), FUN = mean)
 pc2_wineload = aggregate(pcs$PC1, by= list(pcs$Variety), FUN = mean)
 
 ## now let's structure a plot on the basis of wine types -- 
 #perhaps red vs white vs rose?
-plt1 <- ggplot(subset(pcs,Variety %in% c("White Blend","Rosé", "Red Blend")), 
+plt1 <- ggplot(subset(pcs,Variety %in% c("White Blend","Ros?", "Red Blend")), 
                aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + guides(col = guide_legend(nrow = 2)) + theme(legend.position = "bottom")+ xlim(-.004, .004) + ylim(-.0041, .025)
 
 #the big grapes?  
@@ -155,7 +155,7 @@ plt2 <- ggplot(subset(pcs,Variety %in% c("Chardonnay",  "Sauvignon Blanc","Caber
                aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2)  + guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom") + xlim(-.004, .0044) + ylim(-.0041, .025)
 
 #some little grapes?
-plt3 <- ggplot(subset(pcs,Variety %in% c("Grüner Veltliner", "Petit Verdot", "Viognier", "Cabernet Franc","Malbec", "Nebbiolo")), 
+plt3 <- ggplot(subset(pcs,Variety %in% c("Gr?ner Veltliner", "Petit Verdot", "Viognier", "Cabernet Franc","Malbec", "Nebbiolo")), 
                aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom") + xlim(-.004, .0044) + ylim(-.0041, .025)
 
 #desserts, ports and bubbly?
@@ -175,7 +175,7 @@ textplt2 <- ggplot(as.data.frame(pc_results$x), aes(x=PC3, y=PC4, label = wine_t
 plot(textplt2)
 
 library(GGally)
-ggpairs(subset(pcs,Variety %in% c("Champagne Blend",  "Grüner Veltliner", "Merlot","Sangiovese")), columns = 1:3, aes(colour = Variety))
+ggpairs(subset(pcs,Variety %in% c("Champagne Blend",  "Gr?ner Veltliner", "Merlot","Sangiovese")), columns = 1:3, aes(colour = Variety))
 
 #####################################################################
 # well, now that we've got features and data - let's try and classify
@@ -256,7 +256,7 @@ colnames(mldata_small_varieties)[51] <- "Target"
 # a dataset based on wine category
 
 pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 50) %>% ungroup() %>% as.data.frame()
-pcs2 <- subset(pcs2,Category %in% c("White", "Rosé", "Red"))
+pcs2 <- subset(pcs2,Category %in% c("White", "Ros?", "Red"))
 
 mldata_wine_category = cbind(pcs2[,1:50],pcs2[,297])
 colnames(mldata_wine_category)[51] <- "Target"
