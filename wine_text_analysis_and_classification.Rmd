@@ -51,11 +51,25 @@ wine_terms<-t(read.csv("wine_terms.txt", sep = ",", header = F))
 #wine_cellar <- readRDS("wine_collection_V2.RDS")
 #wine_all <- bind_rows(wine_cellar)
 
-wine_cellar1 <- readRDS("wine_collection_2016WHITE.RDS")
-wine_cellar2 <- readRDS("wine_collection_2016REDUS.RDS")
-wine_cellar3 <- readRDS("wine_collection_V2.RDS")
-wine_cellar <- c(wine_cellar1,wine_cellar2,wine_cellar3)
-wine_all <- bind_rows(wine_cellar)
+# load all data in local data directory
+# (where each segment of reviews is stored in a seperate rds file)
+
+path = "C:/users/sadaccabf/Documents/wineR/data/"
+setwd(path)
+
+out.file<-list()
+file.names <- dir(path = getwd(), pattern =".RDS")
+
+for(i in 1:length(file.names)){
+  file <- readRDS(file.names[i])
+  out.file <- c(out.file, file)
+}
+
+# wine_cellar1 <- readRDS("wine_collection_2016WHITE.RDS")
+# wine_cellar2 <- readRDS("wine_collection_2016REDUS.RDS")
+# wine_cellar3 <- readRDS("wine_collection_V2.RDS")
+# wine_cellar <- c(wine_cellar1,wine_cellar2,wine_cellar3)
+ wine_all <- bind_rows(out.file)
 
 
 # let's define a function to clean and match reviews to wine terms
@@ -79,7 +93,7 @@ clean_review = function(x,wine_terms){
 
 wine_all.new <- wine_all # let's not mess up the first file
 # there are many varieties at < 10 reviews - not quite fair to try and classify them, right? 
-wine_all.new <- wine_all.new %>% group_by(Variety) %>% filter(n() >= 50) %>% ungroup() %>% as.data.frame()
+wine_all.new <- wine_all.new %>% group_by(Variety) %>% filter(n() >= 80) %>% ungroup() %>% as.data.frame()
 # was initially stripping out all wine blends (Portuguese wines are GREAT!!)
 # and forgot to remove this line before starting to pretty up the HTML output.  
 wine_all.new <- wine_all.new %>% filter(!grepl("Portuguese",wine_all.new$Variety, fixed=TRUE))
@@ -132,7 +146,7 @@ pcs <- cbind(pc_results$x,wine_all.new)
 
 ## now let's structure a plot on the basis of wine types -- 
 #perhaps red vs white vs rose?
-plt1 <- ggplot(subset(pcs,Variety %in% c("White Blend","RosÃ©", "Red Blend")), 
+plt1 <- ggplot(subset(pcs,Variety %in% c("White Blend","Rosé", "Red Blend")), 
              aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + xlim(-6, 9) + ylim(-7, 8) + 
 guides(col = guide_legend(nrow = 2)) + theme(legend.position = "bottom")
 
@@ -142,7 +156,7 @@ plt2 <- ggplot(subset(pcs,Variety %in% c("Chardonnay",  "Sauvignon Blanc", "Syra
 guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
 
 # plus histograms to suit
-hist1<-ggplot(subset(pcs,Variety %in% c("White Blend","RosÃ©", "Red Blend")), 
+hist1<-ggplot(subset(pcs,Variety %in% c("White Blend","Rosé", "Red Blend")), 
              aes(x = PC1, fill = Variety))+geom_density(binwidth=0.1,alpha = 1)+theme(legend.position="none")+ xlim(-6, 9)
 
 hist2<-ggplot(subset(pcs,Variety %in% c("Chardonnay",  "Sauvignon Blanc", "Syrah","Cabernet Sauvignon","Sangiovese")), 
@@ -208,21 +222,30 @@ If we have all this information to tell apart wines, how well can we do at class
 # there was a code block initially devoted to finding the best classifier 
 # with mlr's benchmark() function - but was secondary to addressing wine dimensionality 
 
-pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= 800) %>% ungroup() %>% as.data.frame()
+samplesize<-800
+pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= samplesize) %>% ungroup() %>% as.data.frame()
 pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
 
+num_pcs = 20
+mldata = cbind(pcs2[,1:num_pcs],pcs2[,274])
+colnames(mldata)[num_pcs+1] <- "Variety"
 
-mldata = cbind(pcs2[,1:20],pcs2[,274])
-colnames(mldata)[21] <- "Variety"
-
+#resample for imbalanced classes, if you're not weighting!!
+#mldata=mldata %>% group_by(Variety) %>% sample_n(size = samplesize) %>% ungroup() %>% as.data.frame()
 
 ## 1) Define the task
 ## Specify the type of analysis (e.g. classification) and provide data and response variable
 task = makeClassifTask(data = mldata, target = "Variety")
 
+tab<-as.numeric(table(getTaskTargets(task)))
+weight_rebalance = 1/tab[getTaskTargets(task)]
+
 ## 2) Define the learner
 ## Choose a specific algorithm (e.g. linear discriminant analysis)
 lrn = makeLearner("classif.svm") #svm and randomForest reliably best, then LDA, of all things with glmnet, xgboost and naivebayes o.k.
+
+#lrn = makeLearner("classif.randomForestSRC", nodesize=10) #svm and randomForest reliably best, then LDA, of all things with glmnet, xgboost and naivebayes o.k.
+##NOTE: NOT ALL LEARNERS ALLOW WEIGHTS
 
 n = nrow(mldata)
 train.set = sample(n, size = 2/3*n)
@@ -230,7 +253,7 @@ test.set = setdiff(1:n, train.set)
 
 ## 3) Fit the model
 ## Train the learner on the task using a random subset of the data as training set
-model = train(lrn, task, subset = train.set)
+model = train(lrn, task, subset = train.set)#, weights=weight_rebalance[train.set])
 
 ## 4) Make predictions
 ## Predict values of the response variable for new observations by the trained model

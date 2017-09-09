@@ -7,15 +7,23 @@ ok - so assuming we have the first notebook run and have created the pcs variabl
 
 ```{r}
 pcs2 <- subset(pcs, Category  %in% c("Red", "White"))
+
+samplesize = 400 # don't take wines with fewer than 200 reviews
+pcs2 <- pcs2 %>% group_by(Variety) %>% filter(n() >= samplesize) %>% ungroup() %>% as.data.frame()
 pc_wineload <- aggregate(pcs2[1:150], by= list(pcs2$Variety, pcs2$Category), FUN = mean)
 pc_wineload <- pc_wineload[!(pc_wineload$Group.1 == "Chardonnay" & pc_wineload$Group.2 == "Red"),]
+pc_wineload <- pc_wineload[!(pc_wineload$Group.1 == "Sauvignon Blanc" & pc_wineload$Group.2 == "Red"),]
 pc_wineload <- pc_wineload[!(pc_wineload$Group.1 == "Aglianico" & pc_wineload$Group.2 == "White"),]
 pc_wineload <- pc_wineload[!(pc_wineload$Group.1 == "Pinot Noir" & pc_wineload$Group.2 == "White"),]
 pc_wineload <- pc_wineload[!(pc_wineload$Group.1 == "Syrah" & pc_wineload$Group.2 == "White"),]
-pc_wineload <- pc_wineload[!(pc_wineload$Group.1 ==  "Rosé" & pc_wineload$Group.2 == "White"),]
+pc_wineload <- pc_wineload[!(pc_wineload$Group.1 ==  "Viognier" & pc_wineload$Group.2 == "Red"),]
+pc_wineload <- pc_wineload[!(pc_wineload$Group.1 ==  "Red Blend"),]
+pc_wineload <- pc_wineload[!(pc_wineload$Group.1 ==  "White Blend"),]
+pc_wineload <- pc_wineload[!(pc_wineload$Group.1 ==  "Malbec" & pc_wineload$Group.2 == "White"),]
+
 rownames(pc_wineload) <- 1:nrow(pc_wineload)
 
-head(pc_wineload)
+head(pc_wineload,20)
 
 ```
 
@@ -23,7 +31,8 @@ ok - now lets subtract each element from the cluster center of each other elemen
 
 ```{r}
 
-wine_distances<- pcs[,c(1:2,287:298)]
+wine_distances<- pcs[,c(1:2,265:276)]
+colnames(wine_distances)<-c("PC1","PC2","Farm","Year","Name (Region)","Points","Price","Review","Rating","Review Date","Alc %","Variety","Category","Reviewer")
 
 for (ii in 1:nrow(pc_wineload)){
   wine_distances[pc_wineload$Group.1[ii]] <-100
@@ -43,10 +52,10 @@ N=5
 library(ggplot2)
 
 sub_wine_distances <- wine_distances
-sub_wine_distances$price <- as.numeric(gsub('[$,]','',as.character(sub_wine_distances$price)))
+sub_wine_distances$price <- as.numeric(gsub('[$,]','',as.character(sub_wine_distances$Price)))
 
 sub_wine_distances <- subset(sub_wine_distances, Variety %in% "Chardonnay")
-sub_wine_distances <- subset(sub_wine_distances, price < 300)
+sub_wine_distances <- subset(sub_wine_distances, Price < 300)
 
 ndx <- order(sub_wine_distances$'Malbec', decreasing = F)[1:N]
 
