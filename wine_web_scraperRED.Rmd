@@ -1,0 +1,107 @@
+---
+output: html_document
+---
+---
+title: "wine web scraper"
+This notebook was adapted by BS, 8/15/2017 from Hanjo Odendall's Data Scientist with a wine Hobby (part 1) at http://blog.eighty20.co.za//package%20exploration/2016/09/11/wine-review/
+
+this first part loads up our libraries, draws in a first page, decides how many pages remain and defines a function for extraction of html data (with the majority of effort produced by the html_nodes chopping up the webpage by css selectors).  A little work is required to hunt for grape names and other info 
+
+```{r}
+library(dplyr)
+library(rvest)
+library(httr)
+
+uastring = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.112 Safari/535.1'
+
+site = read_html(GET("http://www.winemag.com/?s=&drink_type=wine&wine_type=Red&pub_date_web=2016&page=1", user_agent(uastring)))
+
+nr_pages <- html_nodes(site,".pagination li a") %>%
+  html_text() %>% tail(.,1) %>% as.numeric
+
+wine_href <- html_nodes(site,".review-listing") %>% html_attr("href")
+
+info_xtr <- function(x){
+
+  uastring = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.112     Safari/535.1'
+  
+  page <- read_html(GET(x,user_agent(uastring)))
+  
+  review <- page %>% html_nodes("p.description") %>% 
+    html_text
+  
+  review_info <- page %>% html_nodes(".info.small-9.columns span span") %>% 
+    html_text()
+  
+  wine_details <- page %>% html_nodes(".info.medium-9.columns span a") %>%
+    html_text()
+  
+  reviewer <- page %>% html_nodes("div.name") %>% html_text()
+  
+  cbind(review, Date = review_info[5], Alc = review_info[1], Variety=wine_details[2], Category = review_info[3], Reviewer = reviewer[1])
+}
+
+```
+
+here's a demo of the info extractor in action
+
+```{r}
+info_xtr(wine_href[1])
+```
+
+
+and now, here's the scraper doing the scraping, make sure to go slow as to not get locked out. 
+
+```{r}
+# Start the scraper ==============
+Wine_cellar <- list()
+
+for(i in 1:500)
+{
+  
+  cat("Wine review, page: ", i,"\n")
+  
+  site = read_html(GET(paste0("http://www.winemag.com/?s=&drink_type=wine&wine_type=Red&pub_date_web=2008&page=",i), user_agent(uastring)))
+  
+  wine <- html_nodes(site,".review-listing .title") %>%
+    html_text()
+  
+  # extract specific information from title
+  wine_farms <- gsub(" \\d.*$","",wine)
+  wine_year <- gsub("[^0-9]","",wine)
+  wine_name <- gsub("^.*\\d ","",wine) %>% gsub(" \\(Stellenbosch\\)","",.)
+  
+  # extract review points4e
+  points <- html_nodes(site,".info .rating") %>%
+    html_text() %>% gsub(" Points","",.)
+  
+  # extract review price
+  price <- html_nodes(site,"span.price") %>%
+    html_text()
+  
+  wine_href <- html_nodes(site,".review-listing") %>% html_attr("href")
+  
+  # here I go collect all the information from each of the wines seperately
+  reviews <- sapply(wine_href, function(x) info_xtr(x))
+  reviews <- t(reviews) 
+  row.names(reviews) <- NULL
+  colnames(reviews) <- c("review", "Review_date", "Alc", "Variety", "Category", "Reviewer")
+  
+  # bind all the information into a nicely formatted data.frame()
+  Wine_cellar[[i]] <- data.frame(wine_farms, wine_year, wine_name, points, price, wine_href, reviews, stringsAsFactors = F)
+  
+  # as a rule I always save the already collected data, just in case the scraper stops unexpectedly
+  saveRDS(Wine_cellar,"Wine_collection_2008RED_US.RDS")
+  
+  # I add in a sleep as not the flood the website that I am scraping with requests
+  Sys.sleep(runif(1,.2,5))
+}
+```
+
+
+```{r}
+Wine_all <- bind_rows(Wine_cellar)
+Wine_all %>% select(-c(wine_href, review)) %>% str()
+
+```
+

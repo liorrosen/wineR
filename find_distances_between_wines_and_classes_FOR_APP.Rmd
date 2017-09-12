@@ -7,9 +7,10 @@ ok - so assuming we have the first notebook run and have created the pcs variabl
 
 ```{r}
 pcs2 <- subset(pcs, Category  %in% c("Red", "White"))
+#pcs2 <- pcs2[pcs2$points>82,]
 
-samplesize = 400 # don't take wines with fewer than 200 reviews
-pcs2 <- pcs2 %>% group_by(Variety) %>% filter(n() >= samplesize) %>% ungroup() %>% as.data.frame()
+samplesize = 250 # don't take wines with fewer than 200 reviews
+pcs2 <- pcs2 %>% group_by(Variety, Category) %>% filter(n() >= samplesize) %>% ungroup() %>% as.data.frame()
 pc_wineload <- aggregate(pcs2[1:150], by= list(pcs2$Variety, pcs2$Category), FUN = mean)
 pc_wineload <- pc_wineload[!(pc_wineload$Group.1 == "Chardonnay" & pc_wineload$Group.2 == "Red"),]
 pc_wineload <- pc_wineload[!(pc_wineload$Group.1 == "Sauvignon Blanc" & pc_wineload$Group.2 == "Red"),]
@@ -37,7 +38,7 @@ colnames(wine_distances)<-c("PC1","PC2","Farm","Year","Name (Region)","Points","
 for (ii in 1:nrow(pc_wineload)){
   wine_distances[pc_wineload$Group.1[ii]] <-100
   for (jj in 1:nrow(pcs)){
-  wine_distances[jj,pc_wineload$Group.1[ii]]<-(sum(abs(pcs[jj,1:2]-pc_wineload[ii,3:4]))) # cityblock distance
+  wine_distances[jj,pc_wineload$Group.1[ii]]<-(sum(abs(pcs[jj,1:5]-pc_wineload[ii,3:7]))) # cityblock distance
   }
 }
 
