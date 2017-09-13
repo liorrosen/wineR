@@ -135,22 +135,28 @@ pcs <- cbind(pc_results$x,wine_all.new)
 
 ## now let's structure a plot on the basis of wine types -- 
 #perhaps red vs white vs rose?
-plt1 <- ggplot(subset(pcs,Variety %in% c("White Blend","Rosé", "Red Blend")), 
-             aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2) + xlim(-6, 9) + ylim(-7, 8) + 
-guides(col = guide_legend(nrow = 2)) + theme(legend.position = "bottom")
+library(RColorBrewer)
+
+plt1 <- ggplot(subset(pcs,Variety %in% c("White Blend","RosÃ©", "Red Blend")), 
+             aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/1.5) + xlim(-6, 9) + ylim(-7, 8) + 
+guides(col = guide_legend(nrow = 2))+theme_minimal() + theme(legend.position = "bottom") +    
+  scale_color_manual(name = 'Wines:', breaks = c('Red Blend',  'RosÃ©','White Blend'), values=c("#e83544", "#FFB6C1","#dfca4e")) 
+
 
 #the big grapes?  
 plt2 <- ggplot(subset(pcs,Variety %in% c("Chardonnay",  "Sauvignon Blanc", "Syrah","Cabernet Sauvignon","Sangiovese")), 
-             aes(x = PC1, y = PC2, colour = Variety)) + geom_point( alpha = 1/2)  +xlim(-6, 9) + ylim(-7, 8) +
-guides(col = guide_legend(nrow = 2))+  theme(legend.position = "bottom")
+             aes(x = PC1, y = PC2, colour = Variety)) + 
+  guides(col = guide_legend(nrow = 2))+theme_minimal() + theme(legend.position = "bottom") + geom_point( alpha = 1/1.5)  +xlim(-6, 9) + ylim(-7, 8)+
+  scale_color_manual(name = 'Wines:', breaks = c('Chardonnay','Cabernet Sauvignon','Sangiovese','Sauvignon Blanc','Syrah'), values=c("#651659", "#E69F00",  "#762020","#fffcc0","#ff3b3f")) 
 
 # plus histograms to suit
-hist1<-ggplot(subset(pcs,Variety %in% c("White Blend","Rosé", "Red Blend")), 
-             aes(x = PC1, fill = Variety))+geom_density(binwidth=0.1,alpha = .8)+theme(legend.position="none")+ xlim(-6, 9)
+hist1<-ggplot(subset(pcs,Variety %in% c("White Blend","RosÃ©", "Red Blend")), 
+             aes(x = PC1, fill = Variety))+theme_minimal()+geom_density(binwidth=0.1,alpha = .8)+theme(legend.position="none")+ xlim(-6, 9)+
+              scale_fill_manual(name = 'Wines:', breaks = c('Red Blend',  'RosÃ©','White Blend'), values=c("#e83544", "#FFB6C1","#dfca4e")) 
 
-hist2<-ggplot(subset(pcs,Variety %in% c("Chardonnay",  "Sauvignon Blanc", "Syrah","Cabernet Sauvignon","Sangiovese")), 
-             aes(x = PC1, fill = Variety))+geom_density(binwidth=0.1,alpha = .8)+theme(legend.position="none")+ xlim(-6, 9)
-
+hist2<-ggplot(subset(pcs,Variety %in% c("Cabernet Sauvignon","Chardonnay",  "Sauvignon Blanc", "Syrah","Sangiovese")), 
+             aes(x = PC1, fill = Variety))+theme_minimal()+geom_density(binwidth=0.1,alpha = .8)+theme(legend.position="none")+ xlim(-6, 9)+
+            scale_fill_manual(name = 'Wines:', breaks = c('Chardonnay','Cabernet Sauvignon','Sangiovese','Sauvignon Blanc','Syrah'), values=c("#651659", "#E69F00",  "#762020","#fffcc0","#ff3b3f")) 
 
 
 
@@ -160,7 +166,7 @@ multiplot(cols = 2, plt1,hist1,plt2,hist2)
 ```
  
  
-So, this is pretty nice for our simplified model. Each plot shows a subset of wines from the database, projected onto the two features that best show the differences among individual wines (PC1 and PC2).  Based on these features, we can tell white wines from reds just like we expected. This is clearest in the top-left plot, showing all wines labeled as Red Blends, White Blends, or Rosé (which can be made from either traditionally red or white grapes and often has similarities to both red and white wines).  As a nice sanity check, it looks like Rosé wines fall right across both the red and white distributions, connecting the two. One surprise is that the difference within red and white wines is just as big as the differences between whites and reds.  What's particularly striking about this spread is that the differences between reds and whites is along a single feature - PC1, most easily seen in the histograms below each scatterplot. This is in contrast with PC2, which captures little difference between reds and whites, but instead captures much of the variability within each category.  One takeaway is that that different words are used to describe red and white wines, which will be loaded heavily on PC1.  Though nice, with all the individual datapoints for each wine overlain in each of these scatter plots, it's tough to get a sense for exactly how each wine variety, on average, relates to all the others. If we take the center of each wine variety's cloud of individual wine reviews, do we see a similar pattern of variation among wine varieties?
+So, this is pretty nice for our simplified model. Each plot shows a subset of wines from the database, projected onto the two features that best show the differences among individual wines (PC1 and PC2).  Based on these features, we can tell white wines from reds just like we expected. This is clearest in the top-left plot, showing all wines labeled as Red Blends, White Blends, or Ros? (which can be made from either traditionally red or white grapes and often has similarities to both red and white wines).  As a nice sanity check, it looks like Ros? wines fall right across both the red and white distributions, connecting the two. One surprise is that the difference within red and white wines is just as big as the differences between whites and reds.  What's particularly striking about this spread is that the differences between reds and whites is along a single feature - PC1, most easily seen in the histograms below each scatterplot. This is in contrast with PC2, which captures little difference between reds and whites, but instead captures much of the variability within each category.  One takeaway is that that different words are used to describe red and white wines, which will be loaded heavily on PC1.  Though nice, with all the individual datapoints for each wine overlain in each of these scatter plots, it's tough to get a sense for exactly how each wine variety, on average, relates to all the others. If we take the center of each wine variety's cloud of individual wine reviews, do we see a similar pattern of variation among wine varieties?
 
   
 
@@ -179,7 +185,7 @@ pc_wineload = aggregate(pcs2[1:2], by= list(pcs2$Variety, pcs2$Category), FUN = 
 ggplot(pc_wineload, aes(x = PC1, y = PC2, label= Group.1, color=Group.2))+ geom_point()+
 
  scale_color_manual(name = 'Wines:', breaks = c('Red', 'White'), values=c("#e83544", "#E69F00")) +
-      geom_label_repel(label.size =NA, fontface = "bold", size = 3, 
+      geom_text_repel(label.size =NA, fontface = "bold", size = 3, 
                        # Add extra padding around each text label.
                        box.padding = unit(.2, 'lines'),
                        # Add extra padding around each data point.
@@ -194,7 +200,7 @@ ggplot(pc_wineload, aes(x = PC1, y = PC2, label= Group.1, color=Group.2))+ geom_
                        force = 0.2,
                        # Maximum iterations of the naive repulsion algorithm O(n^2).
                        max.iter = 3e4
-                       ) + theme(legend.justification=c(0.9,0.1))#, legend.position=FALSE)
+                       ) + theme(legend.justification=c(0.9,0.1))+theme_minimal()+guides(color=FALSE)#)
 
 ```
  
@@ -207,14 +213,17 @@ This is a terrific bit of insight into how varietals compare to one another, on 
 ```{r pca_loadings_plot, include=TRUE, results='hide', echo = FALSE, fig.height=8, fig.width=9}
 
 # render the terms from the pca
-textplt1 <- ggplot(as.data.frame(pc_results$rotation), aes(x=PC1, y=PC2, label = wine_terms)) + geom_text(check_overlap=TRUE,fontface = "bold", size = 4)
+textplt1 <- ggplot(as.data.frame(pc_results$rotation), aes(x=PC1, y=PC2, label = wine_terms, color = PC1)) +
+  geom_text(check_overlap=TRUE,fontface = "bold", size = 4)+theme_minimal()+
+  scale_color_gradient2(low="#dfca4e", mid = "grey", high = "red", midpoint =0)+
+  guides(color = FALSE)
 
 plot(textplt1)
 
 ```
  
   
-Ok so this makes sense, PC1 seems to call out a number of big red and white wine terms, as tannins, cherry, spice and plum flavour all play a big role in wines ending on the negative end of PC1, and apple, lime, peach, and citrus, traditionally white wine terms, play a role in wines falling on the positive side of PC1. PC2 doesn't lend itself to nearly as simple an interpretation, but it, along with the next few dimensions add substantially to the abiliyt to classify individual wine varieties from one another.
+Ok so this makes sense, PC1 seems to call out a number of big red and white wine terms, as tannins, cherry, spice and plum flavour all play a big role in wines ending on the positive end of PC1, and apple, lime, peach, and citrus, traditionally white wine terms, play a role in wines falling on the negative side of PC1. PC2 doesn't lend itself to nearly as simple an interpretation, but the simplest interpretation is differentiating wines with more robust and rounded flavor (e.g. rich, oaky, full, big, buttery) from lighter, more acidic wines (e.g. bright, flower, fresh, citrus).  While this extra feature doesn't really help tell reds from whites, it, along with the next few dimensions, aids substantially in telling individual wine varieties from one another.
  
  
  
@@ -236,7 +245,7 @@ pcs2 <- pcs %>% group_by(Variety) %>% filter(n() >= samplesize) %>% ungroup() %>
 pcs2 <- pcs2 %>% filter(!grepl("Blend",pcs2$Variety, fixed=TRUE))
 
 num_pcs = 30
-mldata = cbind(pcs2[,1:num_pcs],pcs2[,274])
+mldata = pcs2[,c(1:num_pcs,274)]
 colnames(mldata)[num_pcs+1] <- "Variety"
 
 #resample for imbalanced classes, if you're not weighting!!
@@ -283,15 +292,16 @@ predconfmat$result <- t(apply(predconfmat$result[,1:dim(predconfmat$result)[1]-1
 ## now sort those wines in a sensible way for ordering the wines
 pc_wineload = aggregate(pcs2$PC1, by= list(pcs2$Variety), FUN = mean)
 image_data = (melt(predconfmat$result[order(pc_wineload$x),order(pc_wineload$x)]))
-
+im_colormap = brewer.pal(9, "RdYlBu")
 image = qplot(x = true, y = predicted, fill=value, data=image_data,geom="raster")+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))+scale_fill_continuous(name = "classification %:")+geom_text(label=round(image_data$value), color = "white")
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))+scale_fill_gradientn(name = "classification %:", colors = im_colormap[9:-1:1])+geom_text(label=round(image_data$value), color = "white")+theme_minimal()
+
 plot(image)
 
 ```
 
 
-They look like they classify pretty well: on average 80% of reviews were correctly assigned to the variety they belonged to, and if we're misclassifying it's within the same category.  While it's not suprising we can tell apart reds from whites pretty well (they're usually described with different terms, after all), it's reassuring we're quite good at telling wines apart within red and white categories. 
+They look like they classify pretty well: on average 73% of reviews were correctly assigned to the variety they belonged to, and if we're misclassifying it's within the same category.  While it's not suprising we can tell apart reds from whites pretty well (they're usually described with different terms, after all), it's reassuring we're quite good at telling wines apart within red and white categories. 
 
 Here's an interesting thought: Could we use this model to find individual wines that are particularly good examples of their class (like an ur-merlot) or wines that really taste like other things (e.g. can I find a cabernet that tastes like a white wine?). In fact, I just wrote a shiny app to do this, [right here](https://sadacca.shinyapps.io/wine-findr/) if you're interested in playing with the underlying data.
 
@@ -463,7 +473,7 @@ xdata = Reduce(merge, list(xdata1, xdata2, xdata3))
 
 ## and plot the classifier output
 
-plt1 <- ggplot(xdata) + 
+plt1 <- ggplot(xdata) + theme_minimal()+
   geom_line(aes(x = npcs, y = class_nmean, color = "c1"), size = 1) +
   geom_ribbon(aes(x = npcs, ymin = class_nmean - 2*class_sd, ymax = class_nmean + 2*class_sd), alpha = 0.3) +
 
