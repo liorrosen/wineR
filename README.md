@@ -11,4 +11,4 @@ currently includes
 
 - code for the associated [Shiny app](https://sadacca.shinyapps.io/wine-findr/) lives [next-door](www.github.com/sadacca/wine-findR)
 
-- a HTML rendered version of the analysis linked above and hosted at [github.io](http://sadacca.github.io/wineR/) can also be found in the [docs folder](www.github.com/sadacca/wineR/docs)
+- a HTML rendered version of the analysis linked above and hosted at [github.io](http://sadacca.github.io/wineR/) can also be found in the docs folder
